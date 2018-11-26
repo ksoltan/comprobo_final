@@ -4,10 +4,25 @@ from nav_msgs.srv import GetMap
 import numpy as np
 import math
 
+class State(object):
+    def __init__():
+        x = None
+        y = None
+        theta = None
+        # index = None # TODO: Make sure this is always correct
+        pass
+
+    def distance(other_state):
+        pass
+
+
+
 class MarkovModel(object):
     def __init__(self):
         rospy.init_node("markov_model")
         self.model_states = []
+
+        self.roadmap = #[[start_state_idx, end_state_idx, action, probability], ...]
 
         rospy.wait_for_service("static_map")
         static_map = rospy.ServiceProxy("static_map", GetMap)
@@ -25,6 +40,8 @@ class MarkovModel(object):
 '''
     def make_states(self, num_states=5):
         self.model_states = []
+        # TODO: Use state object here, #include orientation
+
         map_x_range = (self.map.info.origin.position.x, self.map.info.origin.position.x + self.map.info.width * self.map.info.resolution)
         map_y_range = (self.map.info.origin.position.y, self.map.info.origin.position.y + self.map.info.height * self.map.info.resolution)
 
@@ -64,6 +81,21 @@ class MarkovModel(object):
             if is_occupied:
                 return False
 
+        return True
+
+    def build_roadmap():
+        # Depends on isCollisionFree(), self.states, getTransitions()
+        pass
+
+    def get_transitions():
+        # Depends on generate_sample_transitions(), a state, an action, state_distance
+        pass
+
+    def generate_sample_transitions():
+        pass
+
+    def is_collision_free_path():
+        # TODO: probably fine for small enough motion, but should probalby implement a raytrace type thing.
         return True
 
 if __name__ == "__main__":
