@@ -34,6 +34,9 @@ class Action:
     def get_pose_change(action):
         return Action.ACTION_MAP.get(action, (0, 0))
 
+    def get_all_actions():
+        return Action.ACTION_MAP.keys()
+
 '''
     Class: State
 
@@ -137,17 +140,73 @@ class MarkovModel(object):
 
         return True
 
-    def build_roadmap():
-        # Depends on isCollisionFree(), self.states, getTransitions()
-        pass
+    '''
+        Function: build_roadmap
+        Inputs: int num_samples - how many transitions to simulate
 
-    def get_transitions():
-        # Depends on generate_sample_transition(), a state, an action, state_distance
-        pass
+        Set self.roadmap to a list of tuples encoding the probability of
+        transitions between a start and end state given an action.
+        States are represented as idxs in self.model_states.
+
+    '''
+    def build_roadmap(self, num_samples=10):
+        for start_state_idx in range(len(self.model_states)):
+            for action in Action.get_all_actions():
+                transitions = get_transitions(start_state_idx, action, num_samples)
+                map_elems = [(start_state_idx, transitions[i][0], action, transitions[i][1]) for i in range(len(transitions))]
+                self.roadmap = np.vstack((self.roadmap, map_elems))
+
+    '''
+        Function: get_transitions()
+        Inputs: int start_state_idx
+                Action action
+                int num_samples
+
+        Returns a list of all possible end_states and their probabilities from
+        the given state and action.
+        Returns a list of tuples (state_idx, probability)
+        Simulates num_samples transitions to calculate probabilities
+
+    '''
+    def get_transitions(self, start_state_idx, action, num_samples=10):
+        # TODO: inclue a dedicated Obstacle state?
+        # TODO: penalize obstacle in path between start and end states
+        transitions = {}
+        for sample_num in range(num_samples):
+            sample_state = self.generate_sample_transition(start_state_idx, action)
+            end_state_idx = self.get_closest_state_idx(sample_state)
+
+            # Update the probability, or add new state
+            if end_state_idx in transitions:
+                transitions[end_state_idx] += 1.0 / sample_num
+            else:
+                transitions[end_state_idx] = 1.0 / sample_num
+
+        return zip(transitions.keys(), transitions.values())
+
+    '''
+        Function: get_closest_state_idx
+        Inputs: State sample_state
+
+        Return the index of state in self.model_states with
+        minimum distance to sample_state.
+
+    '''
+    def get_closest_state_idx(self, sample_state):
+        min_distance = np.inf
+        closest_state_idx = -1
+
+        for state_idx in range(len(self.model_states)):
+            distance = sample_state.distance(self.model_states[state_idx])
+            if(distance < min_distance):
+                min_distance = distance
+                closest_state_idx = state_idx
+
+        return closest_state_idx
 
     '''
         Function: generate_sample_transition
-        Inputs: int state_idx
+        Inputs: int start_state_idx
                 Action action
 
         Returns a State that can be achieved with some probability from the
@@ -156,6 +215,11 @@ class MarkovModel(object):
 
     '''
     def generate_sample_transition(self, start_state_idx, action):
+        # Standard deviations
+        # TODO: Are these standard deviations reasonable?
+        pos_sd = 0.1
+        theta_sd = 0.01
+
         start_state = self.model_states[start_state_idx]
         start_x = start_state.x
         start_y = start_state.y
@@ -163,9 +227,13 @@ class MarkovModel(object):
 
         linear, angular = Action.get_pose_change(action)
 
-        pass
+        end_x = start_x + np.random.normal(linear * math.cos(start_theta), pos_sd)
+        end_y = start_y + np.random.normal(linear * math.sin(start_theta), pos_sd)
+        end_theta = np.random.normal(start_theta + angular, theta_sd) % (2 * math.pi)
 
-    def is_collision_free_path(self, start_state_idx, end_state_idx):
+        return State(x=end_x, y=end_y, theta=end_theta)
+
+    def is_collision_free_path(self, start_state, end_state_idx):
         # TODO: probably fine for small enough motion, but should implement a raytrace type thing.
         return True
 
