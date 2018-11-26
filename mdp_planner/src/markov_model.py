@@ -8,12 +8,23 @@ class MarkovModel(object):
     def __init__(self):
         rospy.init_node("markov_model")
         self.model_states = []
-        
+
         rospy.wait_for_service("static_map")
         static_map = rospy.ServiceProxy("static_map", GetMap)
         self.map = static_map().map
 
+'''
+    Function: make_states
+    Inputs: int num_states
+
+    Generates a set of states across a given map.
+    States are represented as x, y coordinate tuples.
+    States should not generate collisions with obstacles in the map.
+    Overwrites the current set of self.model_states.
+
+'''
     def make_states(self, num_states=5):
+        self.model_states = []
         map_x_range = (self.map.info.origin.position.x, self.map.info.origin.position.x + self.map.info.width * self.map.info.resolution)
         map_y_range = (self.map.info.origin.position.y, self.map.info.origin.position.y + self.map.info.height * self.map.info.resolution)
 
@@ -23,13 +34,24 @@ class MarkovModel(object):
 
         while len(self.model_states) < num_states:
             sampled_position = (np.random.uniform(*map_x_range), np.random.uniform(*map_y_range))
-            
+
+            # Add state only if it does not generate a collision.
             if self.is_collision_free(sampled_position):
                 self.model_states.append(sampled_position)
 
-        print("model_staets")
+        print("model_states")
         print(self.model_states)
 
+'''
+    Function: is_collision_free
+    Inputs: tuple point
+            robot_radius
+
+    Return whether a circle centered at the point with a radius of robot_radius
+    generates a collision with an obstacle in the map.
+    Only checks a given number of points along the circumference of the circle.
+
+'''
     def is_collision_free(self, point, robot_radius=0.15):
         num_circle_points = 25
         for angle in np.linspace(0, 2 * math.pi, num_circle_points):
