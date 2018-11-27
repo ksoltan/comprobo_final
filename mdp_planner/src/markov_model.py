@@ -19,7 +19,7 @@ class MarkovModel(object):
     def __init__(self):
         rospy.init_node("markov_model")
 
-        self.num_states = 100
+        self.num_states = 1000
         self.num_orientations = 10 # number of orientations of one state position to generate
         self.num_transition_samples = 100 # how many transitions to simulate when building roadmap
 
@@ -279,12 +279,13 @@ if __name__ == "__main__":
     print(model.is_collision_free((1.2823, 1.054)))  # free in ac109_1
     model.build_roadmap()
     model.clear_visualization()
-    while not rospy.is_shutdown():
-        r = rospy.Rate(0.5)
-        # model.visualize_roadmap(filter="ACTION", filter_value=Action.FORWARD)
-        # model.visualize_roadmap(filter="END_STATE", filter_value=50)
-        model.visualize_roadmap(filter="START_STATE", filter_value=30)
-        r.sleep()
+    model.visualize_roadmap(filter="START_STATE", filter_value=30)
+    # while not rospy.is_shutdown():
+    #     r = rospy.Rate(0.5)
+    #     # model.visualize_roadmap(filter="ACTION", filter_value=Action.FORWARD)
+    #     # model.visualize_roadmap(filter="END_STATE", filter_value=50)
+    #     model.visualize_roadmap(filter="START_STATE", filter_value=30)
+    #     r.sleep()
 
     # for i in range(10):
     #     s = model.generate_sample_transition(0, Action.FORWARD)
