@@ -28,7 +28,7 @@ class Action:
     '''
     @staticmethod
     def get_pose_change(action):
-        return Action.ACTION_MAP.get(action, (0, 0))
+        return Action.ACTION_MAP.get(action, (0, 0))  # TODO: Make not fail silently
 
     @staticmethod
     def get_all_actions():

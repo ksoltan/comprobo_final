@@ -122,7 +122,7 @@ class MarkovModel(object):
 
     '''
     def get_transitions(self, start_state_idx, action, num_samples=10):
-        # TODO: inclue a dedicated Obstacle state?
+        # TODO: include a dedicated Obstacle state?
         # TODO: penalize obstacle in path between start and end states
         transitions = {}
         for sample_num in range(0, num_samples):
@@ -147,6 +147,7 @@ class MarkovModel(object):
 
     '''
     def get_closest_state_idx(self, sample_state):
+        # TODO: Re-implement with kd-tree
         min_distance = np.inf
         closest_state_idx = -1
 
@@ -208,7 +209,7 @@ class MarkovModel(object):
         pose_arr = PoseArray()
         pose_arr.header.frame_id = "map"
 
-        count = 0;
+        count = 0
         for transition in self.roadmap:
             # Select what to display based on input:\
             start_pose, start_marker, end_pose, end_marker, arrow_marker = None, None, None, None, None
@@ -271,12 +272,61 @@ class MarkovModel(object):
         self.state_pose_pub.publish(pose_arr)
         self.marker_pub.publish(marker_arr)
 
+    def solve_mdp(self):
+        # Policy (pi) = function of state -> action. Start with random policy.
+        #
+        # value function (V_pi) = sum of rewards for states to goal, function of state -> sum reward
+        #               V_pi(S) = Reward at S + gamma * sum [over_transition_states_S'] (P(S' | S, pi(S))*V_pi(S')) where P(S' | S, pi(S)) is the transition probability
+        #
+        # in vector from: value_function_vector = rewards_vector + gamma * transition_matrix * value_function_vector
+        #                            V_pi       =       R        + gamma *         P_pi      *           V_pi
+        # Where P_pi = [
+        #               [transition from S1 to S1 with action pi(S1), ..., transition from S1 to Sn with action pi(S1)],
+        #               [transition from S2 to S1 with action pi(S2), ..., transition from S2 to Sn with action pi(S1)],
+        #                 ...
+        #               [transition from Sn to S1 with action pi(Sn), ..., transition from Sn to Sn with action pi(Sn)]
+        #              ]
+        #
+        # Solve for V_pi with:
+        #       V_pi = (I - gamma * P_pi)^-1 * R
+        #
+        # Policy'(S) = argmax over actions (R(S) + gamma * sum over transition states S' (transition probability * V_pi'(S')))
+
+        # # # # # # # # # # # # #
+
+        # Make transition matrix
+        # Get rewards vector
+        # Get Gamma
+
+        # while not has_converged:
+        #     P_pi = double loop over states, get value from roadmap
+        #     V_pi = inverse(I - gamma * P_pi) * R
+
+        #     has_converged = True
+        #     for each state:
+        #         P_state = [
+        #             [transition prob from S0 to S with action 0, ..., transition prob from Sn to S with action 0],
+        #             ...
+        #             [transition prob from S0 to S with action m, ..., transition prob from Sn to S with action m],
+        #         ]
+        #         R_state = [R(S), ..., R(S)] with length m
+        #         new pi(S) = R_state + gamma * V_pi
+
+        #         if new pi(S) != pi (S):
+        #             has_converged = False
+
+        #     pi = new_pi
+
+        # return pi
+
+        pass
+
 if __name__ == "__main__":
     model = MarkovModel()
-    print(model.map.info)
+    print("model.map.info: {}".format(model.map.info))
     model.make_states()
-    print(model.is_collision_free((0.97926, 1.4726)))  # Hit wall in ac109_1
-    print(model.is_collision_free((1.2823, 1.054)))  # free in ac109_1
+    print("Validate is_collision_free - should be False: {}".format(model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
+    print("Validate is_collision_free - should be True: {}".format(model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
     model.build_roadmap()
     model.clear_visualization()
     model.visualize_roadmap(filter="START_STATE", filter_value=30)
