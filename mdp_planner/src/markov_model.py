@@ -16,11 +16,11 @@ from State import State
 
 '''
 class MarkovModel(object):
-    def __init__(self):
+    def __init__(self, num_states=1000, num_orientations=10):
         rospy.init_node("markov_model")
 
-        self.num_states = 1000
-        self.num_orientations = 10 # number of orientations of one state position to generate
+        self.num_states = num_states
+        self.num_orientations = num_orientations # number of orientations of one state position to generate
         self.num_transition_samples = 100 # how many transitions to simulate when building roadmap
 
         self.model_states = [] # All possible positions and orientations
@@ -48,6 +48,7 @@ class MarkovModel(object):
     '''
     def make_states(self):
         self.model_states = []
+        # np.random.seed(0)
 
         map_x_range = (self.map.info.origin.position.x, self.map.info.origin.position.x + self.map.info.width * self.map.info.resolution)
         map_y_range = (self.map.info.origin.position.y, self.map.info.origin.position.y + self.map.info.height * self.map.info.resolution)
@@ -107,7 +108,7 @@ class MarkovModel(object):
                     self.roadmap = np.array(map_elems)
                 else:
                     self.roadmap = np.vstack((self.roadmap, map_elems))
-        # print(self.roadmap)
+        print(self.roadmap)
 
     '''
         Function: get_transitions()
@@ -188,6 +189,12 @@ class MarkovModel(object):
         end_theta = np.random.normal(start_theta + angular, theta_sd) % (2 * math.pi)
 
         return State(x=end_x, y=end_y, theta=end_theta)
+
+    def get_probability(self, start_state_idx, end_state_idx, action):
+        for transition in self.roadmap:
+            if transition[0] == start_state_idx and transition[1] == end_state_idx and transition[2] == action:
+                return transition[3]
+        return 0
 
     def is_collision_free_path(self, start_state_idx, end_state_idx):
         # TODO: probably fine for small enough motion, but should implement a raytrace type thing.
