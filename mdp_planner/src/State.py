@@ -23,11 +23,15 @@ class State(object):
         Returns the weighted distance between two states,
         including both position and orientation.
     '''
-    def distance(self, other):
-        alpha = 1 # TODO: Check how to weight relative orientation and distance
-        return math.sqrt((self.x - other.x)**2 +
-                         (self.y - other.y)**2 +
-                         alpha*(self.theta - other.theta)**2)
+    @staticmethod
+    def distance_between(state1, state2, alpha=1):
+        # TODO: Check how to weight relative orientation and distance
+        return math.sqrt((state1.x - state2.x)**2 +
+                         (state1.y - state2.y)**2 +
+                         alpha*(state1.theta - state2.theta)**2)
+
+    def distance_to(self, other):
+        return State.distance_between(self, other)
 
     def get_marker(self, r=0.0, g=1.0, b=0.0, scale=0.3):
         marker = Marker()
