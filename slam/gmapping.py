@@ -6,7 +6,7 @@ import rospy
 class Slammer():
 
 	def __init__(self):
-		rospy.init_node("square", disable_signals=True)
+		rospy.init_node("gmapping")
 		rospy.Subscriber('/map', OccupancyGrid, self.getMap)
 		self.rate = rospy.Rate(10)
 
