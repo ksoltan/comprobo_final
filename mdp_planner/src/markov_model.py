@@ -4,6 +4,7 @@ from visualization_msgs.msg import MarkerArray
 from geometry_msgs.msg import PoseArray
 
 import numpy as np
+from sklearn.neighbors import KDTree
 import math
 
 from Action import Action
@@ -23,9 +24,10 @@ class MarkovModel(object):
         self.num_orientations = num_orientations # number of orientations of one state position to generate
         self.num_transition_samples = 100 # how many transitions to simulate when building roadmap
 
-        self.model_states = [] # All possible positions and orientations
+        self.model_states = []  # All possible positions and orientations
+        self.state_kd_tree = None
         # Roadmap stores indeces of the states in self.model_states
-        self.roadmap = [] #[[start_state_idx, end_state_idx, action, probability], ...]
+        self.roadmap = []  # [[start_state_idx, end_state_idx, action, probability], ...]
 
         # Load map
         # Run: `rosrun map_server map_server ac109_1.yaml` <-indicate yaml file of the map
@@ -60,9 +62,13 @@ class MarkovModel(object):
             if self.is_collision_free(sampled_position):
                 # Add multiple orientations
                 for i in range(self.num_orientations):
+                    angle = np.random.uniform(0, 2 * math.pi)
                     self.model_states.append(State(x=sampled_position[0],
                                                    y=sampled_position[1],
-                                                   theta=np.random.uniform(0, 2 * math.pi)))
+                                                   theta=angle))
+        
+        self.state_kd_tree = KDTree(self.model_states, metric='pyfunc', func=State.distance_between)
+        # Note: Is this better than doing  a list comprehension on self.model_states memory-wise?
 
     '''
         Function: is_collision_free
@@ -125,6 +131,9 @@ class MarkovModel(object):
     def get_transitions(self, start_state_idx, action, num_samples=10):
         # TODO: include a dedicated Obstacle state?
         # TODO: penalize obstacle in path between start and end states
+
+
+
         transitions = {}
         for sample_num in range(0, num_samples):
             sample_state = self.generate_sample_transition(start_state_idx, action)
@@ -151,6 +160,10 @@ class MarkovModel(object):
         # TODO: Re-implement with kd-tree
         min_distance = np.inf
         closest_state_idx = -1
+
+        closes_state_idx, distance = self.state_kd_tree.query(sample_state)
+
+        return closest_state_idx
 
         for state_idx in range(len(self.model_states)):
             distance = sample_state.distance(self.model_states[state_idx])
