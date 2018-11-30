@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import math
 '''
     Class: Action
@@ -12,11 +13,11 @@ class Action:
     FORWARD = 0
     RIGHT = 1
 
-    ACTION_MAP = {  # action : (linear, angular)
-        LEFT:(0, math.radians(10)),
-        FORWARD:(5, 0),
-        RIGHT:(0, math.radians(-10))
-    }
+    ACTION_MAP = OrderedDict()
+    # action : (linear, angular)
+    ACTION_MAP[LEFT] = (0, math.radians(10))
+    ACTION_MAP[FORWARD] = (5, 0)
+    ACTION_MAP[RIGHT] = (0, math.radians(-10))
 
     '''
         Function: get_pose_change

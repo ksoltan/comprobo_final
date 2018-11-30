@@ -13,13 +13,14 @@ import math
 import numpy as np
 
 class MDP(object):
-    def __init__(self, num_states=1000, num_orientations=10):
+    def __init__(self, num_positions=1000, num_orientations=10):
         # Build the markov model
         # TODO: Potentially move the map listening node here?
-        self.markov_model = MarkovModel(num_states=num_states, num_orientations=num_orientations)
+        self.markov_model = MarkovModel(num_positions=num_positions, num_orientations=num_orientations)
         self.markov_model.make_states()
         self.markov_model.build_roadmap()
-        self.num_states = num_states
+
+        self.num_states = num_positions * num_orientations
 
         self.goal_state_idx = 0
         self.reward_radius = 0
@@ -67,11 +68,10 @@ class MDP(object):
         self.policy = self.get_random_policy()
 
         change = -1
+        iteration_count = 0
         while change != 0:
-            # Build P matrix.
-            p_matrix = self.build_p_matrix()
-            # print(p_matrix)
-
+            print("iteration {}".format(iteration_count))
+            iteration_count += 1
             # Find V of this policy.
             solved = self.solve_value_function()
             if(solved):
@@ -79,6 +79,7 @@ class MDP(object):
                 change = self.get_new_policy()
                 print(change)
             else:
+                print("Failed to solve for a value function, trying a new random policy")
                 # Singular matrix solution to V
                 self.policy =self.get_random_policy()
         print("Converged!")
@@ -100,15 +101,21 @@ class MDP(object):
         return total_change
 
     def solve_value_function(self):
+        print("Solving value function")
+        # Build P matrix.
+        p_matrix = self.build_p_matrix()
+        # print(p_matrix)
+
         I = np.identity(self.num_states)
         gamma = 0.5
-        if(np.linalg.det(I - gamma * self.policy) == 0):
+        if(np.linalg.det(I - gamma * p_matrix) == 0):
             return False
-        self.value_function = np.linalg.inv(I - gamma * self.policy).dot(self.rewards)
-        print(self.value_function)
+        self.value_function = np.linalg.inv(I - gamma * p_matrix).dot(self.rewards)
+        # print(self.value_function)
         return True
 
     def build_p_matrix(self):
+        print("Building P matrix")
         p_matrix = np.empty([self.num_states, self.num_states])
         for start_state_idx in range(self.num_states):
             for end_state_idx in range(self.num_states):
@@ -117,6 +124,7 @@ class MDP(object):
         return p_matrix
 
     def build_ps_matrix(self, state_idx):
+        print("Building PS matrix")
         all_actions = Action.get_all_actions()
         ps_matrix = np.empty([len(all_actions), self.num_states])
         for i in range(len(all_actions)):
@@ -127,11 +135,8 @@ class MDP(object):
         return ps_matrix
 
 
-
-
-
 if __name__ == "__main__":
-    mdp = MDP(num_states=5, num_orientations=1)
+    mdp = MDP(num_positions=100, num_orientations=10)
     print("model.map.info: {}".format(mdp.markov_model.map.info))
     print("Validate is_collision_free - should be False: {}".format(mdp.markov_model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(mdp.markov_model.is_collision_free((1.2823, 1.054))))  # free in ac109_1

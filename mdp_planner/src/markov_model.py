@@ -16,17 +16,22 @@ from State import State
 
 '''
 class MarkovModel(object):
-    def __init__(self, num_states=1000, num_orientations=10):
+    def __init__(self, num_positions=1000, num_orientations=10):
         rospy.init_node("markov_model")
 
-        self.num_states = num_states
+        self.num_positions = num_positions
         self.num_orientations = num_orientations # number of orientations of one state position to generate
+        self.num_states = self.num_positions * self.num_orientations
+
         self.num_transition_samples = 100 # how many transitions to simulate when building roadmap
 
         self.model_states = [] # All possible positions and orientations
         # Roadmap stores indeces of the states in self.model_states
-        self.roadmap = [] #[[start_state_idx, end_state_idx, action, probability], ...]
-
+        # self.roadmap = [] #[[start_state_idx, end_state_idx, action, probability], ...]
+        # Roadmap is a three dim array, axis 0 = start_state_idx, axis 1 = end_state_idx, axis_2 = action idx in list
+        self.roadmap = np.zeros([self.num_states, self.num_states, len(Action.get_all_actions())])
+        print("Empty roadmap")
+        print(self.roadmap)
         # Load map
         # Run: `rosrun map_server map_server ac109_1.yaml` <-indicate yaml file of the map
         rospy.wait_for_service("static_map")
@@ -49,7 +54,7 @@ class MarkovModel(object):
     def make_states(self):
         self.model_states = []
         # np.random.seed(0)
-
+        count = 0
         map_x_range = (self.map.info.origin.position.x, self.map.info.origin.position.x + self.map.info.width * self.map.info.resolution)
         map_y_range = (self.map.info.origin.position.y, self.map.info.origin.position.y + self.map.info.height * self.map.info.resolution)
 
@@ -63,6 +68,8 @@ class MarkovModel(object):
                     self.model_states.append(State(x=sampled_position[0],
                                                    y=sampled_position[1],
                                                    theta=np.random.uniform(0, 2 * math.pi)))
+                    print("Num states = {}".format(count))
+                    count += 1
 
     '''
         Function: is_collision_free
@@ -98,16 +105,18 @@ class MarkovModel(object):
 
     '''
     def build_roadmap(self, num_samples=100):
+        print("Building roadmap.")
+        transitions = 0
         for start_state_idx in range(len(self.model_states)):
-            for action in Action.get_all_actions():
+            for action_idx in range(len(Action.get_all_actions())):
+                action = Action.get_all_actions()[action_idx]
                 end_state_idxs, probabilities = self.get_transitions(start_state_idx, action, self.num_transition_samples)
                 # print(zip(end_state_idxs, probabilities))
                 # [start_state_idx, end_state_idx, action, probability]
-                map_elems = [(start_state_idx, end_state_idxs[i], action, probabilities[i]) for i in range(len(end_state_idxs))]
-                if(self.roadmap == []):
-                    self.roadmap = np.array(map_elems)
-                else:
-                    self.roadmap = np.vstack((self.roadmap, map_elems))
+                for end_state_idx in range(len(end_state_idxs)):
+                    self.roadmap[start_state_idx][end_state_idx][action_idx] = probabilities[end_state_idx]
+            print("num transitions = {}".format(transitions))
+            transitions += 1
         print(self.roadmap)
 
     '''
@@ -191,10 +200,7 @@ class MarkovModel(object):
         return State(x=end_x, y=end_y, theta=end_theta)
 
     def get_probability(self, start_state_idx, end_state_idx, action):
-        for transition in self.roadmap:
-            if transition[0] == start_state_idx and transition[1] == end_state_idx and transition[2] == action:
-                return transition[3]
-        return 0
+        return self.roadmap[start_state_idx][end_state_idx][action]
 
     def is_collision_free_path(self, start_state_idx, end_state_idx):
         # TODO: probably fine for small enough motion, but should implement a raytrace type thing.
@@ -216,34 +222,51 @@ class MarkovModel(object):
         pose_arr = PoseArray()
         pose_arr.header.frame_id = "map"
 
+        transitions = []
+        if(filter == "START_STATE"):
+            transitions = self.roadmap[filter_value, :, :]
+        elif(filter == "END_STATE"):
+            transitions = self.roadmap[:, filter_value, :]
+        elif(filter == "ACTION"):
+            transitions = self.roadmap[:, :, filter_value]
+
         count = 0
-        for transition in self.roadmap:
-            # Select what to display based on input:\
-            start_pose, start_marker, end_pose, end_marker, arrow_marker = None, None, None, None, None
-            if(filter == "START_STATE" and transition[0] == filter_value):
-                start_pose, start_marker, end_pose, end_marker, arrow_marker = \
-                        self.get_transition_markers(int(transition[0]), int(transition[1]), transition[2], transition[3])
-            elif(filter == "END_STATE" and transition[1] == filter_value):
-                start_pose, start_marker, end_pose, end_marker, arrow_marker = \
-                        self.get_transition_markers(int(transition[0]), int(transition[1]), transition[2], transition[3])
-            elif(filter == "ACTION" and transition[2] == filter_value):
-                start_pose, start_marker, end_pose, end_marker, arrow_marker = \
-                        self.get_transition_markers(int(transition[0]), int(transition[1]), transition[2], transition[3])
-            if(start_pose != None):
-                start_marker.id = count
-                marker_arr.markers.append(start_marker)
-                count += 1
+        for i in range(transitions.shape[0]):
+            for j in range(transitions.shape[1]):
+                if(filter == "START_STATE"):
+                    start_state_idx = filter_value
+                    end_state_idx = i
+                    action_idx = j
+                    probability = self.roadmap[start_state_idx][end_state_idx][action_idx]
+                elif(filter == "END_STATE"):
+                    start_state_idx = filter_value
+                    end_state_idx = i
+                    action_idx = j
+                    probability = self.roadmap[start_state_idx][end_state_idx][action_idx]
+                elif(filter == "ACTION"):
+                    start_state_idx = filter_value
+                    end_state_idx = i
+                    action_idx = j
+                    probability = self.roadmap[start_state_idx][end_state_idx][action_idx]
 
-                end_marker.id = count
-                marker_arr.markers.append(end_marker)
-                count += 1
+        start_pose, start_marker, end_pose, end_marker, arrow_marker = \
+            self.get_transition_markers(start_state_idx, end_state_idx, Action.get_all_actions()[action_idx], probability)
 
-                arrow_marker.id = count
-                marker_arr.markers.append(arrow_marker)
-                count += 1
+        if(start_pose != None):
+            start_marker.id = count
+            marker_arr.markers.append(start_marker)
+            count += 1
 
-                pose_arr.poses.append(start_pose)
-                pose_arr.poses.append(end_pose)
+            end_marker.id = count
+            marker_arr.markers.append(end_marker)
+            count += 1
+
+            arrow_marker.id = count
+            marker_arr.markers.append(arrow_marker)
+            count += 1
+
+            pose_arr.poses.append(start_pose)
+            pose_arr.poses.append(end_pose)
 
         # Publish the pose and marker arrays
         print("Num_poses: {}".format(len(pose_arr.poses)))
@@ -279,70 +302,21 @@ class MarkovModel(object):
         self.state_pose_pub.publish(pose_arr)
         self.marker_pub.publish(marker_arr)
 
-    def solve_mdp(self):
-        # Policy (pi) = function of state -> action. Start with random policy.
-        #
-        # value function (V_pi) = sum of rewards for states to goal, function of state -> sum reward
-        #               V_pi(S) = Reward at S + gamma * sum [over_transition_states_S'] (P(S' | S, pi(S))*V_pi(S')) where P(S' | S, pi(S)) is the transition probability
-        #
-        # in vector from: value_function_vector = rewards_vector + gamma * transition_matrix * value_function_vector
-        #                            V_pi       =       R        + gamma *         P_pi      *           V_pi
-        # Where P_pi = [
-        #               [transition from S1 to S1 with action pi(S1), ..., transition from S1 to Sn with action pi(S1)],
-        #               [transition from S2 to S1 with action pi(S2), ..., transition from S2 to Sn with action pi(S1)],
-        #                 ...
-        #               [transition from Sn to S1 with action pi(Sn), ..., transition from Sn to Sn with action pi(Sn)]
-        #              ]
-        #
-        # Solve for V_pi with:
-        #       V_pi = (I - gamma * P_pi)^-1 * R
-        #
-        # Policy'(S) = argmax over actions (R(S) + gamma * sum over transition states S' (transition probability * V_pi'(S')))
-
-        # # # # # # # # # # # # #
-
-        # Make transition matrix
-        # Get rewards vector
-        # Get Gamma
-
-        # while not has_converged:
-        #     P_pi = double loop over states, get value from roadmap
-        #     V_pi = inverse(I - gamma * P_pi) * R
-
-        #     has_converged = True
-        #     for each state:
-        #         P_state = [
-        #             [transition prob from S0 to S with action 0, ..., transition prob from Sn to S with action 0],
-        #             ...
-        #             [transition prob from S0 to S with action m, ..., transition prob from Sn to S with action m],
-        #         ]
-        #         R_state = [R(S), ..., R(S)] with length m
-        #         new pi(S) = R_state + gamma * V_pi
-
-        #         if new pi(S) != pi (S):
-        #             has_converged = False
-
-        #     pi = new_pi
-
-        # return pi
-
-        pass
-
 if __name__ == "__main__":
-    model = MarkovModel()
+    model = MarkovModel(num_positions=100, num_orientations=1)
     print("model.map.info: {}".format(model.map.info))
     model.make_states()
     print("Validate is_collision_free - should be False: {}".format(model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
     model.build_roadmap()
     model.clear_visualization()
-    model.visualize_roadmap(filter="START_STATE", filter_value=30)
-    # while not rospy.is_shutdown():
-    #     r = rospy.Rate(0.5)
-    #     # model.visualize_roadmap(filter="ACTION", filter_value=Action.FORWARD)
-    #     # model.visualize_roadmap(filter="END_STATE", filter_value=50)
-    #     model.visualize_roadmap(filter="START_STATE", filter_value=30)
-    #     r.sleep()
+    model.visualize_roadmap(filter="START_STATE", filter_value=0)
+    while not rospy.is_shutdown():
+        r = rospy.Rate(0.5)
+        # model.visualize_roadmap(filter="ACTION", filter_value=Action.FORWARD)
+        # model.visualize_roadmap(filter="END_STATE", filter_value=50)
+        model.visualize_roadmap(filter="START_STATE", filter_value=0)
+        r.sleep()
 
     # for i in range(10):
     #     s = model.generate_sample_transition(0, Action.FORWARD)
