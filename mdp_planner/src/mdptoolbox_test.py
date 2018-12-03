@@ -116,6 +116,7 @@ class MDP(object):
 
     '''
     def visualize_policy(self, policy, goal_state):
+        print("Visualizing policy")
         goal_state_idx = self.get_goal_state_idx(goal_state)
         # Visualize the goal state as sphere.
         self.goal_state_pub.publish(self.markov_model.model_states[goal_state_idx].get_marker())
@@ -145,11 +146,11 @@ class MDP(object):
         self.forward_pub.publish(forward_array)
 
 if __name__ == "__main__":
-    mdp = MDP(num_positions=100, num_orientations=1)
+    mdp = MDP(num_positions=1000, num_orientations=1)
     print("model.map.info: {}".format(mdp.markov_model.map.info))
     print("Validate is_collision_free - should be False: {}".format(mdp.markov_model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(mdp.markov_model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
-    mdp.markov_model.print_states()
+    # mdp.markov_model.print_states()
     # print(mdp.markov_model.get_probability(3, 0, Action.FORWARD))
     goal_state = State(x=1, y=1, theta=math.radians(40))
     policy = mdp.get_policy(goal_state)

@@ -277,18 +277,22 @@ class MarkovModel(object):
                     end_state_idx = j
                     action_idx = filter_value
                     probability = self.roadmap[start_state_idx][end_state_idx][action_idx]
-
+                else:
+                    continue
                 start_pose, start_marker, end_pose, end_marker, arrow_marker = \
                     self.get_transition_markers(start_state_idx, end_state_idx, Action.get_all_actions()[action_idx], probability)
 
                 if(start_pose != None and probability > 0.2):
-                    start_marker.id = count
-                    marker_arr.markers.append(start_marker)
-                    count += 1
+                    print("Finding viz for start: {}, end: {}, action: {}".format(start_state_idx, end_state_idx, action_idx))
 
-                    end_marker.id = count
-                    marker_arr.markers.append(end_marker)
-                    count += 1
+                    if(filter == "END_STATE" or filter == "START_STATE"):
+                        start_marker.id = count
+                        marker_arr.markers.append(start_marker)
+                        count += 1
+
+                    # end_marker.id = count
+                    # marker_arr.markers.append(end_marker)
+                    # count += 1
 
                     arrow_marker.id = count
                     marker_arr.markers.append(arrow_marker)
@@ -298,7 +302,7 @@ class MarkovModel(object):
                     pose_arr.poses.append(end_pose)
 
         # Publish the pose and marker arrays
-        print("Num_poses: {}".format(len(pose_arr.poses)))
+        # print("Num_poses: {}".format(count / 3))
         self.state_pose_pub.publish(pose_arr)
         self.marker_pub.publish(marker_arr)
 
@@ -319,10 +323,10 @@ class MarkovModel(object):
         start_state = self.model_states[start_state_idx]
         end_state = self.model_states[end_state_idx]
 
-        vector_marker = start_state.get_distance_vector(end_state)
+        vector_marker = start_state.get_distance_vector(end_state, action)
 
         return (start_state.get_pose(), start_state.get_marker(), end_state.get_pose(),
-                end_state.get_marker(r=1.0-probability, g=0.0, b=probability, scale=0.2), vector_marker)
+                end_state.get_marker(r=1.0-probability, g=0.0, b=probability, scale=0.1), vector_marker)
 
     '''
         Function: clear_visualization
@@ -346,15 +350,17 @@ if __name__ == "__main__":
     print("Validate is_collision_free - should be False: {}".format(model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
     model.build_roadmap()
-    # model.clear_visualization()
-    # # model.visualize_roadmap(filter="START_STATE", filter_value=0)
-    # while not rospy.is_shutdown():
-    #     r = rospy.Rate(0.5)
-    #     model.visualize_roadmap(filter="START_STATE", filter_value=0)
-    #     # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.LEFT))
-    #     # model.visualize_roadmap(filter="END_STATE", filter_value=50)
-    #     # model.visualize_roadmap(filter="START_STATE", filter_value=0)
-    #     r.sleep()
+    model.clear_visualization()
+    # model.visualize_roadmap(filter="START_STATE", filter_value=0)
+    while not rospy.is_shutdown():
+        r = rospy.Rate(0.5)
+        # model.visualize_roadmap(filter="START_STATE", filter_value=40)
+        model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.LEFT))
+        # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.FORWARD))
+        # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.RIGHT))
+        # model.visualize_roadmap(filter="END_STATE", filter_value=50)
+        # model.visualize_roadmap(filter="START_STATE", filter_value=0)
+        r.sleep()
 
     # for i in range(10):
     #     s = model.generate_sample_transition(0, Action.FORWARD)

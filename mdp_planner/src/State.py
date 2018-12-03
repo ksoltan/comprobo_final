@@ -2,7 +2,7 @@ import math
 import rospy
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Vector3, Pose
-
+from Action import Action
 '''
     Class: State
 
@@ -33,7 +33,7 @@ class State(object):
     def distance_to(self, other):
         return State.distance_between(self, other)
 
-    def get_marker(self, r=0.0, g=1.0, b=0.0, scale=0.3):
+    def get_marker(self, r=0.0, g=1.0, b=0.0, scale=0.15):
         marker = Marker()
         marker.header.stamp = rospy.Time.now()
         marker.header.frame_id = "map"
@@ -64,18 +64,25 @@ class State(object):
 
         return pose
 
-    def get_distance_vector(self, other):
+    def get_distance_vector(self, other, action=Action.FORWARD):
         marker = Marker()
         marker.header.stamp = rospy.Time.now()
         marker.header.frame_id = "map"
 
         marker.type = Marker.ARROW
         marker.color.a = 0.7
-        marker.color.g = 1.0
 
-        marker.scale.x = 0.05
-        marker.scale.y = 0.1
-        marker.scale.z = 0.05
+        # Match color of transition to the action.
+        if(action == Action.RIGHT):
+            marker.color.r = 1.0
+            marker.color.b = 1.0
+        elif(action == Action.LEFT):
+            marker.color.r = 1.0
+        else:
+            marker.color.g = 1.0
+        marker.scale.x = 0.02
+        marker.scale.y = 0.05
+        marker.scale.z = 0.02
 
         marker.points = [Vector3(self.x, self.y, 0), Vector3(other.x, other.y, 0)]
         marker.lifetime = rospy.Time(2)
