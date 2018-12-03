@@ -74,7 +74,7 @@ class MarkovModel(object):
                     print("Num states = {}".format(count))
                     count += 1
 
-        self.state_kd_tree = KDTree(self.model_states, metric='pyfunc', func=State.distance_between)
+        # self.state_kd_tree = KDTree(self.model_states, metric='pyfunc', func=State.distance_between)
         # Note: Is this better than doing  a list comprehension on self.model_states memory-wise?
 
     '''
@@ -140,9 +140,6 @@ class MarkovModel(object):
     def get_transitions(self, start_state_idx, action, num_samples=10):
         # TODO: include a dedicated Obstacle state?
         # TODO: penalize obstacle in path between start and end states
-
-
-
         transitions = {}
         for sample_num in range(0, num_samples):
             sample_state = self.generate_sample_transition(start_state_idx, action)
@@ -170,12 +167,12 @@ class MarkovModel(object):
         min_distance = np.inf
         closest_state_idx = -1
 
-        closes_state_idx, distance = self.state_kd_tree.query(sample_state)
-
-        return closest_state_idx
+        # closes_state_idx, distance = self.state_kd_tree.query(sample_state)
+        #
+        # return closest_state_idx
 
         for state_idx in range(len(self.model_states)):
-            distance = sample_state.distance(self.model_states[state_idx])
+            distance = sample_state.distance_to(self.model_states[state_idx])
             if(distance < min_distance):
                 min_distance = distance
                 closest_state_idx = state_idx
@@ -196,7 +193,7 @@ class MarkovModel(object):
         # Standard deviations
         # TODO: FIX STANDARD DEVIATIONS. They are not reasonable. However, if they are too small,
         #       then more states need to be generated to have meaningful transitions (not to the state itself)
-        pos_sd = 0.1
+        pos_sd = 0.01
         theta_sd = 0.1
 
         start_state = self.model_states[start_state_idx]
@@ -212,6 +209,16 @@ class MarkovModel(object):
 
         return State(x=end_x, y=end_y, theta=end_theta)
 
+    '''
+        Function: get_probability
+        Input: int start_state_idx
+               int end_state_idx
+               Action action
+
+        Returns the probability associations with transitioning between the
+        start and end state by executing the specified action.
+
+    '''
     def get_probability(self, start_state_idx, end_state_idx, action):
         return self.roadmap[start_state_idx][end_state_idx][action]
 
@@ -219,6 +226,12 @@ class MarkovModel(object):
         # TODO: probably fine for small enough motion, but should implement a raytrace type thing.
         return True
 
+    '''
+        Function: print_states
+        Input:
+
+        Print all model_states.
+    '''
     def print_states(self):
         for i in self.model_states:
             print(i)
@@ -226,9 +239,10 @@ class MarkovModel(object):
     '''
         Function: visualize_roadmap
         Inputs: string Filter - Choose from START_STATE, END_STATE, ACTION. Parameter by which to sort roadmap
-                int filter_value - start_state_idx, end_state_idx, or action depending on Filter
+                int filter_value - start_state_idx, end_state_idx, or action_idx depending on Filter
 
-        Displays all transitions given a specific start state, end state, or action
+        Displays all transitions given a specific start state, end state, or action indices.
+
     '''
     def visualize_roadmap(self, filter="START_STATE", filter_value=0):
         marker_arr = MarkerArray()
@@ -243,6 +257,8 @@ class MarkovModel(object):
         elif(filter == "ACTION"):
             transitions = self.roadmap[:, :, filter_value]
 
+        print(transitions.shape)
+
         count = 0
         for i in range(transitions.shape[0]):
             for j in range(transitions.shape[1]):
@@ -252,34 +268,34 @@ class MarkovModel(object):
                     action_idx = j
                     probability = self.roadmap[start_state_idx][end_state_idx][action_idx]
                 elif(filter == "END_STATE"):
-                    start_state_idx = filter_value
-                    end_state_idx = i
+                    start_state_idx = i
+                    end_state_idx = filter_value
                     action_idx = j
                     probability = self.roadmap[start_state_idx][end_state_idx][action_idx]
                 elif(filter == "ACTION"):
-                    start_state_idx = filter_value
-                    end_state_idx = i
-                    action_idx = j
+                    start_state_idx = i
+                    end_state_idx = j
+                    action_idx = filter_value
                     probability = self.roadmap[start_state_idx][end_state_idx][action_idx]
 
-        start_pose, start_marker, end_pose, end_marker, arrow_marker = \
-            self.get_transition_markers(start_state_idx, end_state_idx, Action.get_all_actions()[action_idx], probability)
+                start_pose, start_marker, end_pose, end_marker, arrow_marker = \
+                    self.get_transition_markers(start_state_idx, end_state_idx, Action.get_all_actions()[action_idx], probability)
 
-        if(start_pose != None):
-            start_marker.id = count
-            marker_arr.markers.append(start_marker)
-            count += 1
+                if(start_pose != None and probability > 0.2):
+                    start_marker.id = count
+                    marker_arr.markers.append(start_marker)
+                    count += 1
 
-            end_marker.id = count
-            marker_arr.markers.append(end_marker)
-            count += 1
+                    end_marker.id = count
+                    marker_arr.markers.append(end_marker)
+                    count += 1
 
-            arrow_marker.id = count
-            marker_arr.markers.append(arrow_marker)
-            count += 1
+                    arrow_marker.id = count
+                    marker_arr.markers.append(arrow_marker)
+                    count += 1
 
-            pose_arr.poses.append(start_pose)
-            pose_arr.poses.append(end_pose)
+                    pose_arr.poses.append(start_pose)
+                    pose_arr.poses.append(end_pose)
 
         # Publish the pose and marker arrays
         print("Num_poses: {}".format(len(pose_arr.poses)))
@@ -308,9 +324,17 @@ class MarkovModel(object):
         return (start_state.get_pose(), start_state.get_marker(), end_state.get_pose(),
                 end_state.get_marker(r=1.0-probability, g=0.0, b=probability, scale=0.2), vector_marker)
 
+    '''
+        Function: clear_visualization
+        Input:
+
+        Publish empty pose and marker arrays to clear the rviz map.
+
+    '''
     def clear_visualization(self):
         marker_arr = MarkerArray()
         pose_arr = PoseArray()
+
         pose_arr.header.frame_id = "map"
         self.state_pose_pub.publish(pose_arr)
         self.marker_pub.publish(marker_arr)
@@ -322,14 +346,15 @@ if __name__ == "__main__":
     print("Validate is_collision_free - should be False: {}".format(model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
     model.build_roadmap()
-    model.clear_visualization()
-    model.visualize_roadmap(filter="START_STATE", filter_value=0)
-    while not rospy.is_shutdown():
-        r = rospy.Rate(0.5)
-        # model.visualize_roadmap(filter="ACTION", filter_value=Action.FORWARD)
-        # model.visualize_roadmap(filter="END_STATE", filter_value=50)
-        model.visualize_roadmap(filter="START_STATE", filter_value=0)
-        r.sleep()
+    # model.clear_visualization()
+    # # model.visualize_roadmap(filter="START_STATE", filter_value=0)
+    # while not rospy.is_shutdown():
+    #     r = rospy.Rate(0.5)
+    #     model.visualize_roadmap(filter="START_STATE", filter_value=0)
+    #     # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.LEFT))
+    #     # model.visualize_roadmap(filter="END_STATE", filter_value=50)
+    #     # model.visualize_roadmap(filter="START_STATE", filter_value=0)
+    #     r.sleep()
 
     # for i in range(10):
     #     s = model.generate_sample_transition(0, Action.FORWARD)

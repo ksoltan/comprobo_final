@@ -16,7 +16,7 @@ class Action:
     ACTION_MAP = OrderedDict()
     # action : (linear, angular)
     ACTION_MAP[LEFT] = (0, math.radians(10))
-    ACTION_MAP[FORWARD] = (5, 0)
+    ACTION_MAP[FORWARD] = (0.01, 0)
     ACTION_MAP[RIGHT] = (0, math.radians(-10))
 
     '''
