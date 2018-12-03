@@ -17,21 +17,33 @@ class State(object):
         self.theta = theta # Radians
 
     '''
-        Function: distance
+        Function: distance_between
+        Inputs: tuple pose1
+                tuple pose2
+
+        Returns the weighted distance between two poses which are tuples of
+        (x, y, theta). Used in the BallTree computation.
+    '''
+    @staticmethod
+    def distance_between(pose1, pose2, alpha=1):
+        # TODO: Check how to weight relative orientation and distance
+        return math.sqrt((pose1[0] - pose2[0])**2 +
+                         (pose1[1] - pose2[1])**2 +
+                         alpha*(pose1[2] - pose2[2])**2)
+
+    def get_pose_xytheta(self):
+        return (self.x, self.y, self.theta)
+
+    '''
+        Function: distance_to
         Inputs: State other
 
         Returns the weighted distance between two states,
         including both position and orientation.
-    '''
-    @staticmethod
-    def distance_between(state1, state2, alpha=1):
-        # TODO: Check how to weight relative orientation and distance
-        return math.sqrt((state1.x - state2.x)**2 +
-                         (state1.y - state2.y)**2 +
-                         alpha*(state1.theta - state2.theta)**2)
 
+    '''
     def distance_to(self, other):
-        return State.distance_between(self, other)
+        return State.distance_between(self.get_pose_xytheta(), other.get_pose_xytheta())
 
     def get_marker(self, r=0.0, g=1.0, b=0.0, scale=0.15):
         marker = Marker()

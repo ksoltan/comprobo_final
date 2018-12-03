@@ -27,7 +27,7 @@ class MarkovModel(object):
         self.num_transition_samples = 100 # how many transitions to simulate when building roadmap
 
         self.model_states = []  # All possible positions and orientations
-        self.state_kd_tree = None
+        self.kd_tree = None
 
         # Roadmap is a three dim array, axis 0 = start_state_idx, axis 1 = end_state_idx, axis_2 = action idx in list
         self.roadmap = np.zeros([self.num_states, self.num_states, len(Action.get_all_actions())])
@@ -55,6 +55,7 @@ class MarkovModel(object):
     '''
     def make_states(self):
         self.model_states = []
+        poses = []
         # np.random.seed(0)
         count = 0
         map_x_range = (self.map.info.origin.position.x, self.map.info.origin.position.x + self.map.info.width * self.map.info.resolution)
@@ -71,10 +72,12 @@ class MarkovModel(object):
                     self.model_states.append(State(x=sampled_position[0],
                                                    y=sampled_position[1],
                                                    theta=angle))
+                    poses.append([sampled_position[0], sampled_position[1], angle])
                     print("Num states = {}".format(count))
                     count += 1
 
-        # self.state_kd_tree = KDTree(self.model_states, metric='pyfunc', func=State.distance_between)
+        self.kd_tree = KDTree(poses, metric='euclidean')
+        print("hi..?")
         # Note: Is this better than doing  a list comprehension on self.model_states memory-wise?
 
     '''
@@ -94,8 +97,19 @@ class MarkovModel(object):
             x_coord = int((circle_point[0] - self.map.info.origin.position.x) / self.map.info.resolution)
             y_coord = int((circle_point[1] - self.map.info.origin.position.y) / self.map.info.resolution)
 
-            is_occupied = self.map.data[x_coord + self.map.info.width * y_coord]
+            # check if we are in bounds
+            # Used in robot_localization/robot_localizer/scripts/occupancy_field.py
+            if x_coord > self.map.info.width or x_coord < 0:
+                return False
+            if y_coord > self.map.info.height or y_coord < 0:
+                return False
 
+            ind = x_coord + y_coord * self.map.info.width
+
+            if ind >= self.map.info.width*self.map.info.height or ind < 0:
+                return False
+
+            is_occupied = self.map.data[ind]
             if is_occupied:
                 return False
 
@@ -121,7 +135,7 @@ class MarkovModel(object):
                 # [start_state_idx, end_state_idx, action, probability]
                 for end_state_idx in range(len(end_state_idxs)):
                     self.roadmap[start_state_idx][end_state_idx][action_idx] = probabilities[end_state_idx]
-            print("num transitions = {}".format(transitions))
+            # print("num transitions = {}".format(transitions))
             transitions += 1
         print(self.roadmap)
 
@@ -148,11 +162,11 @@ class MarkovModel(object):
 
             # Update the probability, or add new state
             if end_state_idx in transitions:
-                transitions[end_state_idx] += 1.0
+                transitions[end_state_idx] += 1.0 / num_samples
             else:
-                transitions[end_state_idx] = 1.0
+                transitions[end_state_idx] = 1.0 / num_samples
 
-        return (transitions.keys(), [v / num_samples for v in transitions.values()])
+        return (transitions.keys(), transitions.values())
 
     '''
         Function: get_closest_state_idx
@@ -163,21 +177,8 @@ class MarkovModel(object):
 
     '''
     def get_closest_state_idx(self, sample_state):
-        # TODO: Re-implement with kd-tree
-        min_distance = np.inf
-        closest_state_idx = -1
-
-        # closes_state_idx, distance = self.state_kd_tree.query(sample_state)
-        #
-        # return closest_state_idx
-
-        for state_idx in range(len(self.model_states)):
-            distance = sample_state.distance_to(self.model_states[state_idx])
-            if(distance < min_distance):
-                min_distance = distance
-                closest_state_idx = state_idx
-                # print("Found smaller distance: {}, State: {}".format(distance, state_idx))
-        return closest_state_idx
+        distance, closest_state_idx = self.kd_tree.query(np.array([sample_state.get_pose_xytheta()]))
+        return np.asscalar(closest_state_idx[0])
 
     '''
         Function: generate_sample_transition
@@ -344,25 +345,20 @@ class MarkovModel(object):
         self.marker_pub.publish(marker_arr)
 
 if __name__ == "__main__":
-    model = MarkovModel(num_positions=100, num_orientations=1)
+    model = MarkovModel(num_positions=1000, num_orientations=10)
     print("model.map.info: {}".format(model.map.info))
     model.make_states()
     print("Validate is_collision_free - should be False: {}".format(model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
     model.build_roadmap()
-    model.clear_visualization()
-    # model.visualize_roadmap(filter="START_STATE", filter_value=0)
-    while not rospy.is_shutdown():
-        r = rospy.Rate(0.5)
-        # model.visualize_roadmap(filter="START_STATE", filter_value=40)
-        model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.LEFT))
-        # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.FORWARD))
-        # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.RIGHT))
-        # model.visualize_roadmap(filter="END_STATE", filter_value=50)
-        # model.visualize_roadmap(filter="START_STATE", filter_value=0)
-        r.sleep()
-
-    # for i in range(10):
-    #     s = model.generate_sample_transition(0, Action.FORWARD)
-    #     print(s)
-    #     model.get_closest_state_idx(s)
+    # model.clear_visualization()
+    # # model.visualize_roadmap(filter="START_STATE", filter_value=0)
+    # while not rospy.is_shutdown():
+    #     r = rospy.Rate(0.5)
+    #     # model.visualize_roadmap(filter="START_STATE", filter_value=40)
+    #     model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.LEFT))
+    #     # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.FORWARD))
+    #     # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.RIGHT))
+    #     # model.visualize_roadmap(filter="END_STATE", filter_value=50)
+    #     # model.visualize_roadmap(filter="START_STATE", filter_value=0)
+    #     r.sleep()

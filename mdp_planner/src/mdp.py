@@ -7,6 +7,7 @@ from State import State
 from Action import Action
 import math
 import numpy as np
+import mdptoolbox # Must install mdptoolbox following documentation.
 
 '''
     Class: MDP
@@ -63,7 +64,7 @@ class MDP(object):
 
     '''
     def set_rewards(self):
-        high_reward = 100
+        high_reward = 10
         low_reward = -1
 
         goal_state = self.markov_model.model_states[self.goal_state_idx]
@@ -221,24 +222,20 @@ class MDP(object):
         for state_idx in range(len(self.policy)):
             action = self.policy[state_idx]
             state_pose = self.markov_model.model_states[state_idx].get_pose()
-            # print("Action: {}".format(action))
+
             if(action == Action.LEFT):
                 turn_left_array.poses.append(state_pose)
             elif(action == Action.RIGHT):
                 turn_right_array.poses.append(state_pose)
             else:
                 forward_array.poses.append(state_pose)
-        #
-        # print("Len left: {}, right: {}, forward: {}".format(len(turn_left_array.poses),
-        #             len(turn_right_array.poses), len(forward_array.poses)))
+
         self.turn_left_pub.publish(turn_left_array)
         self.turn_right_pub.publish(turn_right_array)
         self.forward_pub.publish(forward_array)
 
-
-
 if __name__ == "__main__":
-    mdp = MDP(num_positions=100, num_orientations=1)
+    mdp = MDP(num_positions=1000, num_orientations=1)
     print("model.map.info: {}".format(mdp.markov_model.map.info))
     print("Validate is_collision_free - should be False: {}".format(mdp.markov_model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(mdp.markov_model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
