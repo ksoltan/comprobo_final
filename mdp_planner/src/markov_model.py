@@ -17,7 +17,7 @@ from State import State
 
 '''
 class MarkovModel(object):
-    def __init__(self, num_positions=1000, num_orientations=10):
+    def __init__(self, num_positions=1000, num_orientations=10, map=None):
         rospy.init_node("markov_model")
 
         self.num_positions = num_positions
@@ -36,9 +36,12 @@ class MarkovModel(object):
 
         # Load map
         # Run: `rosrun map_server map_server ac109_1.yaml` <-indicate yaml file of the map
-        rospy.wait_for_service("static_map")
-        static_map = rospy.ServiceProxy("static_map", GetMap)
-        self.map = static_map().map
+        if(map == None):
+            rospy.wait_for_service("static_map")
+            static_map = rospy.ServiceProxy("static_map", GetMap)
+            self.map = static_map().map
+        else:
+            self.map = map
 
         # Visualization
         self.state_pose_pub = rospy.Publisher('/state_pose_array', PoseArray, queue_size=10)
@@ -77,7 +80,6 @@ class MarkovModel(object):
                     count += 1
 
         self.kd_tree = KDTree(poses, metric='euclidean')
-        print("hi..?")
         # Note: Is this better than doing  a list comprehension on self.model_states memory-wise?
 
     '''
@@ -345,7 +347,7 @@ class MarkovModel(object):
         self.marker_pub.publish(marker_arr)
 
 if __name__ == "__main__":
-    model = MarkovModel(num_positions=1000, num_orientations=10)
+    model = MarkovModel(num_positions=100, num_orientations=1)
     print("model.map.info: {}".format(model.map.info))
     model.make_states()
     print("Validate is_collision_free - should be False: {}".format(model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
