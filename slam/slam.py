@@ -10,13 +10,13 @@ WALL = 1
 EMPTY = 0
 UNKNOWN = -1
 
-def create_empty_map(size, resolution):
-	map = []
+def create_empty_map(size, resolution): #creates an empty occupancy grid
+	map_ = []
 	for x in round(range(-(size[0]/resolution)/2), round((size[0]/resolution)/2)):
 		for y in range(round(-(size[1]/resolution)/2), round((size[1]/resolution)/2)):
-			map[x][y] = UNKNOWN
+			map_[x][y] = UNKNOWN
 
-	return map
+	return map_
 
 def round_to_resolution(num, resolution):
 	return round(num * (1/resolution)) / (1/resolution)
@@ -35,25 +35,47 @@ def map_from_scan(map_, scan, pose, resolution, max_scan):
 		for dist in range(0, end_dist, resolution):
 			x = dist*math.cos(math.radians(angle))
 			y = dist*math.sin(math.radians(angle))
-			map[x][y] = (WALL if map[x][y] == WALL else EMPTY)
+			map_[x][y] = (WALL if map_[x][y] == WALL else EMPTY)
 
 		if end_dist != max_scan:
-			map[x][y] = WALL
+			map_[x][y] = WALL
 
 	return map_
 
 class Map():
-	def __init__(self, size):
+	def __init__(self, size): #Size is a tuple of [x,y] in meters.
 		self.resolution = 0.05
 		self.map = create_empty_map(size, self.resolution)
+		self.size = size
 
 		self.origin = (0, 0)
 		self.map = []
-        self.pose = []
+        self.pose = [] #[x, y, theta]
 
-	    def stitch(map):
+	    def stitch(map_):
 	        #Take current map, reference to origin.  Compare to scan, reference to pose.
-	        #Transform scan to have the same orientation as origin, and merge.
+	        #Transform (only location) scan to have the same orientation as origin, and merge.
+			bound_check(map_)
+
+		def bound_check(map_): #checks if new scan is in bounds, expands map if not.
+			#size of the square-map scan is len(map), integer coordiinates.
+			#Check the sign of the difference in distance to detemrine where to expand the map if needed.
+
+			dist_x, dist_y = round(self.origin[0] - self.pose[0])/resolution,
+			round(self.origin[1] - self.pose[1])/resolution) #convert distance to integer coordinates.
+			mapsize_x = self.size[0]
+			mapsize_y = self.size[1]
+			if (dist_x >= 0):
+				if dist_x + (len(map_)/2) > mapsize_x/2
+				#EXPAND MAP
+			if (dist_y >= 0):
+				if dist_y + (len(map_)/2) > mapsize_y/2
+			if (dist_x <= 0):
+				if dist_x + (len(map_)/2) > mapsize_x/2
+				#EXPAND MAP
+			if (dist_y <= 0):
+				if dist_y + (len(map_)/2) > mapsize_y/2
+
 
 class Slammer():
 	def __init__(self):
