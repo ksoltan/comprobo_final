@@ -7,6 +7,7 @@ from State import State
 from Action import Action
 import math
 import numpy as np
+import mdptoolbox # Must install mdptoolbox following documentation.
 
 '''
     Class: MDP
@@ -17,9 +18,9 @@ import numpy as np
 
 '''
 class MDP(object):
-    def __init__(self, num_positions=1000, num_orientations=10):
+    def __init__(self, num_positions=1000, num_orientations=10, map=None):
         # Build the markov model
-        self.markov_model = MarkovModel(num_positions=num_positions, num_orientations=num_orientations)
+        self.markov_model = MarkovModel(num_positions=num_positions, num_orientations=num_orientations, map=map)
         self.markov_model.make_states()
         self.markov_model.build_roadmap()
 
@@ -63,7 +64,7 @@ class MDP(object):
 
     '''
     def set_rewards(self):
-        high_reward = 100
+        high_reward = 10
         low_reward = -1
 
         goal_state = self.markov_model.model_states[self.goal_state_idx]
@@ -134,7 +135,7 @@ class MDP(object):
 
     """
     def get_new_policy(self):
-        gamma = 0.5
+        gamma = 0.999
         all_actions = Action.get_all_actions()
         total_change = 0
         for state_idx in range(self.num_states):
@@ -161,7 +162,8 @@ class MDP(object):
         # print(p_matrix)
 
         I = np.identity(self.num_states)
-        gamma = 0.5
+        gamma = 0.999
+        print(p_matrix.sum(axis=1))
         if(np.linalg.det(I - gamma * p_matrix) == 0):
             return False
         self.value_function =  np.linalg.inv(I - gamma * p_matrix).dot(self.rewards)
@@ -221,21 +223,17 @@ class MDP(object):
         for state_idx in range(len(self.policy)):
             action = self.policy[state_idx]
             state_pose = self.markov_model.model_states[state_idx].get_pose()
-            # print("Action: {}".format(action))
+
             if(action == Action.LEFT):
                 turn_left_array.poses.append(state_pose)
             elif(action == Action.RIGHT):
                 turn_right_array.poses.append(state_pose)
             else:
                 forward_array.poses.append(state_pose)
-        #
-        # print("Len left: {}, right: {}, forward: {}".format(len(turn_left_array.poses),
-        #             len(turn_right_array.poses), len(forward_array.poses)))
+
         self.turn_left_pub.publish(turn_left_array)
         self.turn_right_pub.publish(turn_right_array)
         self.forward_pub.publish(forward_array)
-
-
 
 if __name__ == "__main__":
     mdp = MDP(num_positions=100, num_orientations=1)
