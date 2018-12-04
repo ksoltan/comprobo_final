@@ -135,7 +135,7 @@ class MDP(object):
 
     """
     def get_new_policy(self):
-        gamma = 0.5
+        gamma = 0.999
         all_actions = Action.get_all_actions()
         total_change = 0
         for state_idx in range(self.num_states):
@@ -162,7 +162,8 @@ class MDP(object):
         # print(p_matrix)
 
         I = np.identity(self.num_states)
-        gamma = 0.5
+        gamma = 0.999
+        print(p_matrix.sum(axis=1))
         if(np.linalg.det(I - gamma * p_matrix) == 0):
             return False
         self.value_function =  np.linalg.inv(I - gamma * p_matrix).dot(self.rewards)

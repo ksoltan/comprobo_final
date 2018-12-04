@@ -153,7 +153,7 @@ class MarkovModel(object):
         Simulates num_samples transitions to calculate probabilities
 
     '''
-    def get_transitions(self, start_state_idx, action, num_samples=10):
+    def get_transitions(self, start_state_idx, action, num_samples=100):
         # TODO: include a dedicated Obstacle state?
         # TODO: penalize obstacle in path between start and end states
         transitions = {}
@@ -180,6 +180,9 @@ class MarkovModel(object):
     '''
     def get_closest_state_idx(self, sample_state):
         distance, closest_state_idx = self.kd_tree.query(np.array([sample_state.get_pose_xytheta()]))
+        res_state = self.model_states[np.asscalar(closest_state_idx[0])]
+        # print("Diff x: {} y: {} theta: {}".format(sample_state.x - res_state.x, sample_state.y - res_state.y, sample_state.theta - res_state.theta))
+
         return np.asscalar(closest_state_idx[0])
 
     '''
@@ -205,10 +208,13 @@ class MarkovModel(object):
         start_theta = start_state.theta
 
         linear, angular = Action.get_pose_change(action)
+        # print("Lin: {}, ang: {}".format(linear, angular))
+
 
         end_x = start_x + np.random.normal(linear * math.cos(start_theta), pos_sd)
         end_y = start_y + np.random.normal(linear * math.sin(start_theta), pos_sd)
         end_theta = np.random.normal(start_theta + angular, theta_sd) % (2 * math.pi)
+        # print(State(x=end_x, y=end_y, theta=end_theta))
 
         return State(x=end_x, y=end_y, theta=end_theta)
 
@@ -347,20 +353,22 @@ class MarkovModel(object):
         self.marker_pub.publish(marker_arr)
 
 if __name__ == "__main__":
-    model = MarkovModel(num_positions=100, num_orientations=1)
+    model = MarkovModel(num_positions=100, num_orientations=10)
     print("model.map.info: {}".format(model.map.info))
     model.make_states()
     print("Validate is_collision_free - should be False: {}".format(model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
     model.build_roadmap()
-    # model.clear_visualization()
-    # # model.visualize_roadmap(filter="START_STATE", filter_value=0)
-    # while not rospy.is_shutdown():
-    #     r = rospy.Rate(0.5)
-    #     # model.visualize_roadmap(filter="START_STATE", filter_value=40)
-    #     model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.LEFT))
-    #     # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.FORWARD))
-    #     # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.RIGHT))
-    #     # model.visualize_roadmap(filter="END_STATE", filter_value=50)
-    #     # model.visualize_roadmap(filter="START_STATE", filter_value=0)
-    #     r.sleep()
+    print(model.roadmap)
+    model.clear_visualization()
+    # model.print_states()
+    # model.visualize_roadmap(filter="START_STATE", filter_value=0)
+    while not rospy.is_shutdown():
+        r = rospy.Rate(0.5)
+        model.visualize_roadmap(filter="START_STATE", filter_value=0)
+        # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.LEFT))
+        # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.FORWARD))
+        # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.RIGHT))
+        # model.visualize_roadmap(filter="END_STATE", filter_value=50)
+        # model.visualize_roadmap(filter="START_STATE", filter_value=0)
+        r.sleep()
