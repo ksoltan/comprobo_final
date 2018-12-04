@@ -6,6 +6,21 @@ from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
 
+WALL = 1
+EMPTY = 0
+UNKNOWN = -1
+
+def create_empty_map(size, resolution):
+	map = []
+	for x in round(range(-(size[0]/resolution)/2), round((size[0]/resolution)/2)):
+		for y in range(round(-(size[1]/resolution)/2), round((size[1]/resolution)/2)):
+			map[x][y] = UNKNOWN
+
+	return map
+
+def round_to_resolution(num, resolution):
+	return round(num * (1/resolution)) / (1/resolution)
+
 def convert_pose_to_xy_and_theta(pose):
     """ Convert pose (geometry_msgs.Pose) to a (x,y,yaw) tuple """
     orientation_tuple = (pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w)
@@ -14,23 +29,31 @@ def convert_pose_to_xy_and_theta(pose):
 
 def map_from_scan(map_, scan, pose, resolution, max_scan):
 	for angle in range(360):
-		if scan[angle] > max_scan or scan[angle] = 0.0:
-			for x in range(0, max_scan*sin(angle))
+
+		end_dist = (min(scan[angle], max_scan) if scan[angle] != 0.0 else max_scan)
+
+		for dist in range(0, end_dist, resolution):
+			x = dist*math.cos(math.radians(angle))
+			y = dist*math.sin(math.radians(angle))
+			map[x][y] = (WALL if map[x][y] == WALL else EMPTY)
+
+		if end_dist != max_scan:
+			map[x][y] = WALL
 
 	return map_
 
 class Map():
-	def __init__(self):
+	def __init__(self, size):
 		self.resolution = 0.05
+		self.map = create_empty_map(size, self.resolution)
+
 		self.origin = (0, 0)
 		self.map = []
         self.pose = []
 
-    def stitch(map):
-        #Take current map, reference to origin.  Compare to scan, reference to pose.
-        #Transform scan to have the same orientation as origin, and 
-
-
+	    def stitch(map):
+	        #Take current map, reference to origin.  Compare to scan, reference to pose.
+	        #Transform scan to have the same orientation as origin, and merge.
 
 class Slammer():
 	def __init__(self):
@@ -42,7 +65,7 @@ class Slammer():
 		self.scan = []
 		self.map = Map()
 		self.get_new_scan = True
-		self.max_scan = 2.5
+		self.max_scan = 3
 		self.pose = (0, 0, 0)
 
 	def get_odom(self, msg):
