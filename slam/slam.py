@@ -12,25 +12,33 @@ def convert_pose_to_xy_and_theta(pose):
     angles = euler_from_quaternion(orientation_tuple)
     return (pose.position.x, pose.position.y, angles[2])
 
-def map_from_scan(map, scan, pose, resolution, max_scan):
+def map_from_scan(map_, scan, pose, resolution, max_scan):
 	for angle in range(360):
 		if scan[angle] > max_scan or scan[angle] = 0.0:
 			for x in range(0, max_scan*sin(angle))
 
-	return map
+	return map_
 
 class Map():
 	def __init__(self):
 		self.resolution = 0.05
 		self.origin = (0, 0)
 		self.map = []
+        self.pose = []
+
+    def stitch(map):
+        #Take current map, reference to origin.  Compare to scan, reference to pose.
+        #Transform scan to have the same orientation as origin, and 
+
+
 
 class Slammer():
 	def __init__(self):
 		rospy.init_node("slam")
 		self.scan_subscriber = rospy.Subscriber('scan', LaserScan, self.get_scan)
 		self.odom_sub = rospy.Subscriber('odom', Odometry, self.get_odom)
-		self.rate = rospy.Rate(10)
+
+        self.rate = rospy.Rate(10)
 		self.scan = []
 		self.map = Map()
 		self.get_new_scan = True
