@@ -373,7 +373,7 @@ class MarkovModel(object):
         self.marker_pub.publish(marker_arr)
 
 if __name__ == "__main__":
-    model = MarkovModel(num_positions=100, num_orientations=10)
+    model = MarkovModel(num_positions=100, num_orientations=1)
     print("model.map.info: {}".format(model.map.info))
     model.make_states()
     print("Validate is_collision_free - should be False: {}".format(model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
