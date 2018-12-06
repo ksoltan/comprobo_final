@@ -34,6 +34,9 @@ class State(object):
     def get_pose_xytheta(self):
         return (self.x, self.y, self.theta)
 
+    def __eq__(self, other):
+        return abs(self.x - other.x) < 0.0001 and abs(self.y - other.y) < 0.0001 and abs(self.theta - other.theta) < 0.0001
+
     '''
         Function: distance_to
         Inputs: State other

@@ -26,18 +26,38 @@ class Robot(object):
     def simulate_policy(self, iterations=50):
         robot_states = self.get_states(iterations=iterations)
         r = rospy.Rate(1)
-        for i in range(iterations):
+        i = 0
+        num_consec = 0
+        prev_state = State(x=0, y=0, theta=0)
+        while i < iterations:
             self.mdp.visualize_policy(self.policy, self.goal_state)
             curr_state = robot_states[i]
+            print(curr_state)
+            print(prev_state)
+            if(prev_state == curr_state):
+                num_consec += 1
+                if(num_consec > 2):
+                    break
+            else:
+                num_consec = 0
             self.robot_state_pub.publish(curr_state.get_marker(r=0.0, g=0.0, b=1.0, scale=0.15))
             robot_pose = PoseArray()
             robot_pose.header.frame_id = "map"
             robot_pose.poses = [curr_state.get_pose()]
             self.robot_state_pose_pub.publish(robot_pose)
+            prev_state = curr_state
+            i += 1
             r.sleep()
+        print("Finished simulation\n")
+        print("Would you like to run again?")
+        if(raw_input() in ['n', 'NO', 'N', 'no']):
+            print("Exiting")
+        else:
+            print("Enter start state: ")
+            self.state_idx = input()
+            self.simulate_policy()
 
     def get_states(self, iterations=100):
-        i = 0
         states = []
         for i in range(iterations):
             # Execute the action at the given state.
@@ -74,7 +94,7 @@ class Robot(object):
         return np.asscalar(closest_state_idx[0])
 
 if __name__ == "__main__":
-    mdp = MDP(num_positions=10, num_orientations=1)
+    mdp = MDP(num_positions=100, num_orientations=10)
     print("model.map.info: {}".format(mdp.markov_model.map.info))
     print("Validate is_collision_free - should be False: {}".format(mdp.markov_model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(mdp.markov_model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
