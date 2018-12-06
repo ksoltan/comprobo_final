@@ -210,7 +210,6 @@ class MarkovModel(object):
         linear, angular = Action.get_pose_change(action)
         # print("Lin: {}, ang: {}".format(linear, angular))
 
-
         end_x = start_x + np.random.normal(linear * math.cos(start_theta), pos_sd)
         end_y = start_y + np.random.normal(linear * math.sin(start_theta), pos_sd)
         end_theta = np.random.normal(start_theta + angular, theta_sd) % (2 * math.pi)
