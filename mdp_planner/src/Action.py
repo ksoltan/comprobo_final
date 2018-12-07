@@ -15,9 +15,9 @@ class Action:
 
     ACTION_MAP = OrderedDict()
     # action : (linear, angular)
-    ACTION_MAP[LEFT] = (0, math.radians(10))
-    ACTION_MAP[FORWARD] = (0.01, 0)
-    ACTION_MAP[RIGHT] = (0, math.radians(-10))
+    ACTION_MAP[LEFT] = (0, math.radians(30))
+    ACTION_MAP[FORWARD] = (0.5, 0)
+    ACTION_MAP[RIGHT] = (0, math.radians(-30))
 
     '''
         Function: get_pose_change
@@ -34,3 +34,11 @@ class Action:
     @staticmethod
     def get_all_actions():
         return Action.ACTION_MAP.keys()
+
+    @staticmethod
+    def to_str(action):
+        if(action == Action.LEFT):
+            return "LEFT"
+        if(action == Action.FORWARD):
+            return "FORWARD"
+        return "RIGHT"

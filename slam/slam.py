@@ -1,20 +1,23 @@
 #!/usr/bin/env python
 
 import rospy
-from math import *
+import math
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
+import numpy as np
+import scipy.misc as smp
 
 WALL = 1
 EMPTY = 0
 UNKNOWN = -1
 
-def create_empty_map(size, resolution): #creates an empty occupancy grid
+def create_empty_map(size, resolution):
 	map_ = []
-	for x in round(range(-(size[0]/resolution)/2), round((size[0]/resolution)/2)):
-		for y in range(round(-(size[1]/resolution)/2), round((size[1]/resolution)/2)):
-			map_[x][y] = UNKNOWN
+	for x in range(int(round(size[0]/resolution))):
+		map_.append([])
+		for y in range(int(round(size[1]/resolution))):
+			map_[x].append(UNKNOWN)
 
 	return map_
 
@@ -22,25 +25,26 @@ def round_to_resolution(num, resolution):
 	return round(num * (1/resolution)) / (1/resolution)
 
 def convert_pose_to_xy_and_theta(pose):
-    """ Convert pose (geometry_msgs.Pose) to a (x,y,yaw) tuple """
-    orientation_tuple = (pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w)
-    angles = euler_from_quaternion(orientation_tuple)
-    return (pose.position.x, pose.position.y, angles[2])
+	""" Convert pose (geometry_msgs.Pose) to a (x,y,yaw) tuple """
+	orientation_tuple = (pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w)
+	angles = euler_from_quaternion(orientation_tuple)
+	return (pose.position.x, pose.position.y, angles[2])
 
-def map_from_scan(map_, scan, pose, resolution, max_scan):
+def map_from_scan(scan, pose, resolution, max_scan):
+	map_ = create_empty_map([max_scan*2, max_scan*2], resolution)
 	for angle in range(360):
 
 		end_dist = (min(scan[angle], max_scan) if scan[angle] != 0.0 else max_scan)
 
-		for dist in range(0, end_dist, resolution):
-			x = dist*math.cos(math.radians(angle))
-			y = dist*math.sin(math.radians(angle))
-			map_[x][y] = (WALL if map_[x][y] == WALL else EMPTY)
+		for dist in range(int(round(end_dist/resolution))):
+			x = (dist*resolution)*math.cos(pose[2] + math.radians(angle))
+			y = (dist*resolution)*math.sin(pose[2] + math.radians(angle))
+			map_[int(round(x/resolution))][int(round(y/resolution))] = (WALL if map_[int(round(x/resolution))][int(round(y/resolution))] == WALL else EMPTY)
 
 		if end_dist != max_scan:
-			map_[x][y] = WALL
+			map_[int(round(x/resolution))][int(round(y/resolution))] = WALL
 
-	return map_
+	return Map(map_, pose)
 
 class Map():
 	def __init__(self, size): #Size is a tuple of [x,y] in meters.
@@ -74,7 +78,7 @@ class Map():
 			#Check the sign of the difference in distance to determine where to expand the map if needed.
 
 			dist_x, dist_y = round(self.pose[0])/resolution,
-			round(self.pose[1])/resolution) #convert distance to integer coordinates.
+			round(self.pose[1])/resolution #convert distance to integer coordinates.
 			mapsize_x = self.size[0]
 			mapsize_y = self.size[1]
 			#Map expansion works by creating a new map with the expanded size.
@@ -93,7 +97,7 @@ class Map():
 					map_expand_x = (dist_x)
 			if (dist_y >= 0):
 				if (dist_y + (len(map_)/2) > mapsize_y/2):
-					map_expand_y = dist_y)
+					map_expand_y = dist_y
 			if (dist_x <= 0):
 				if (abs(dist_x - (len(map_)/2)) > mapsize_x/2):
 					map_expand_x = abs(dist_x)
@@ -106,6 +110,19 @@ class Map():
 			#now to translate the origin
 			self.origin = (self.origin[0] + translate_origin_x, self.origin[1] + translate_origin_y)
 
+	def show_map():
+		# Create a 1024x1024x3 array of 8 bit unsigned integers
+		data = np.zeros((1024,1024,3), dtype=np.uint8)
+
+		for x in range():
+			for y in range():
+				
+
+		data[512,512] = [254,0,0]       # Makes the middle pixel red
+		data[512,513] = [0,0,255]       # Makes the next pixel blue
+
+		img = smp.toimage(data)       # Create a PIL image
+		img.show()                      # View in default viewer
 
 class Slammer():
 	def __init__(self):
@@ -113,12 +130,13 @@ class Slammer():
 		self.scan_subscriber = rospy.Subscriber('scan', LaserScan, self.get_scan)
 		self.odom_sub = rospy.Subscriber('odom', Odometry, self.get_odom)
 
-        self.rate = rospy.Rate(10)
+		self.rate = rospy.Rate(10)
 		self.scan = []
-		self.map = Map()
 		self.get_new_scan = True
 		self.max_scan = 3
+		self.resolution = 0.1
 		self.pose = (0, 0, 0)
+		self.map_ = None
 
 	def get_odom(self, msg):
 		self.pose = convert_pose_to_xy_and_theta(msg.pose.pose)
@@ -126,6 +144,8 @@ class Slammer():
 	def get_scan(self, msg):
 		if self.get_new_scan:
 			self.scan = msg.ranges
+			self.map_ = map_from_scan(self.scan, self.pose, self.resolution, self.max_scan)
+			print self.map_.map_
 			self.get_new_scan = False
 
 	def run(self):
