@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
 import rospy
-from math import *
+import math
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
+import numpy as np
+import scipy.misc as smp
 
 WALL = 1
 EMPTY = 0
@@ -37,22 +39,88 @@ def map_from_scan(scan, pose, resolution, max_scan):
 		for dist in range(int(round(end_dist/resolution))):
 			x = (dist*resolution)*math.cos(pose[2] + math.radians(angle))
 			y = (dist*resolution)*math.sin(pose[2] + math.radians(angle))
-			map_[round(x/resolution)][round(y/resolution)] = (WALL if map[x][y] == WALL else EMPTY)
+			map_[int(round(x/resolution))][int(round(y/resolution))] = (WALL if map_[int(round(x/resolution))][int(round(y/resolution))] == WALL else EMPTY)
 
 		if end_dist != max_scan:
-			map_[x][y] = WALL
+			map_[int(round(x/resolution))][int(round(y/resolution))] = WALL
 
-	return Map(map_, pose)
+	return Map(map_, resolution)
 
 class Map():
-	def __init__(self, map_, pose):
+	def __init__(self, map_, resolution): #Size is a tuple of [x,y] in meters.
 		self.map_ = map_
-		self.pose = pose
+		self.resolution = resolution
+		self.size = (len(self.map_), len(self.map_[0]))
 
-	def stitch(self, map):
+		self.origin = (math.floor(self.size[0]/2), math.floor(self.size[1]/2))
+		self.pose = [] #[x, y, theta], is always relative.  It's the measure of distance from origin.
+
+	def stitch(scan_map):
 		#Take current map, reference to origin.  Compare to scan, reference to pose.
-		#Transform scan to have the same orientation as origin, and 
-		pass
+		#Transform (only location) scan to have the same orientation as origin, and merge.
+		bound_check(scan_map)
+		scan_size = len(scan)
+		#origin + pose = index.
+		start_point = [(self.origin[0] + self.pose[0]-scan_size/2),
+		(self.origin[1] + self.pose[1] + scan_size/2)]
+
+		for i in scan_size: #compare the scan_map to the scan.
+			for j in scan_size:
+				new_scan  = scan_map[i][j]
+				reference = self.map[start_point[0] + i][start_point[1] + j] #equivalent point on map
+				#based on priority. 1 is a solid wall and always takes priority.
+				#0 is navigable space, and -1 is unknown.
+				self.map_[start_point[0] + i][start_point[1] + j] = max(new_scan, reference)
+
+
+	def bound_check(map_): #checks if new scan is in bounds, expands map if not.
+		#size of the square-map scan is len(map), integer coordiinates.
+		#Check the sign of the difference in distance to determine where to expand the map if needed.
+
+		dist_x, dist_y = round(self.pose[0])/resolution,
+		round(self.pose[1])/resolution #convert distance to integer coordinates.
+		mapsize_x = self.size[0]
+		mapsize_y = self.size[1]
+		#Map expansion works by creating a new map with the expanded size.
+		#First it determines if the map needs to be expanded by looking at
+		# if the bot is within the current map.  Then it calculates the
+		#amount that needs to be expanded, then determines
+		#if the origin needs to be translated (if negative), since the map can only
+		#be expanded by adding indices.
+		map_expand_x = 0
+		map_expand_y = 0
+		translate_origin_x = 0
+		translate_origin_y = 0
+
+		if (dist_x >= 0):
+			if (dist_x + (len(map_)/2) > mapsize_x/2):
+				map_expand_x = (dist_x)
+		if (dist_y >= 0):
+			if (dist_y + (len(map_)/2) > mapsize_y/2):
+				map_expand_y = dist_y
+		if (dist_x <= 0):
+			if (abs(dist_x - (len(map_)/2)) > mapsize_x/2):
+				map_expand_x = abs(dist_x)
+				translate_origin_x = map_expand_x
+		if (dist_y <= 0):
+			if (abs(dist_y - (len(map_)/2)) > mapsize_y/2):
+				map_expand_y = abs(dist_y)
+				translate_origin_y = map_expand_y
+
+		#now to translate the origin
+		self.origin = (self.origin[0] + translate_origin_x, self.origin[1] + translate_origin_y)
+
+	def show_map(self):
+		# Create a 1024x1024x3 array of 8 bit unsigned integers
+		display = np.zeros((len(self.map_), len(self.map_[0]), 3), dtype=np.uint8)
+
+		for x in range(len(self.map_)):
+			for y in range(len(self.map_[0])):
+				reading = self.map_[x][y]
+				display[x][y] = ([0, 0, 0] if (reading == WALL) else ([255, 255, 255] if (reading == EMPTY) else [100, 100, 100]))
+
+		img = smp.toimage(display)
+		img.show()
 
 class Slammer():
 	def __init__(self):
@@ -64,7 +132,7 @@ class Slammer():
 		self.scan = []
 		self.get_new_scan = True
 		self.max_scan = 3
-		self.resolution = 0.1
+		self.resolution = 0.005
 		self.pose = (0, 0, 0)
 		self.map_ = None
 
@@ -75,7 +143,7 @@ class Slammer():
 		if self.get_new_scan:
 			self.scan = msg.ranges
 			self.map_ = map_from_scan(self.scan, self.pose, self.resolution, self.max_scan)
-			print self.map_
+			self.map_.show_map()
 			self.get_new_scan = False
 
 	def run(self):
