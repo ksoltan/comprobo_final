@@ -49,7 +49,7 @@ def map_from_scan(scan, pose, resolution, max_scan):
 class Map():
 	def __init__(self, size): #Size is a tuple of [x,y] in meters.
 		self.resolution = 0.05
-		self.map = create_empty_map(size, self.resolution)
+		self.map_ = create_empty_map(size, self.resolution)
 		self.size = size
 
 		self.origin = (math.floor(self.size[0]/2), math.floor(self.size[1]/2))
@@ -70,7 +70,7 @@ class Map():
 					reference = self.map[start_point[0] + i][start_point[1] + j] #equivalent point on map
 					#based on priority. 1 is a solid wall and always takes priority.
 					#0 is navigable space, and -1 is unknown.
-					self.map[start_point[0] + i][start_point[1] + j] = max(new_scan, reference)
+					self.map_[start_point[0] + i][start_point[1] + j] = max(new_scan, reference)
 
 
 		def bound_check(map_): #checks if new scan is in bounds, expands map if not.
@@ -116,7 +116,7 @@ class Map():
 
 		for x in range():
 			for y in range():
-				
+
 
 		data[512,512] = [254,0,0]       # Makes the middle pixel red
 		data[512,513] = [0,0,255]       # Makes the next pixel blue
