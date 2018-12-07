@@ -128,18 +128,17 @@ class MarkovModel(object):
     '''
     def build_roadmap(self, num_samples=100):
         print("Building roadmap.")
-        transitions = 0
+        num_transitions = 0
         for start_state_idx in range(len(self.model_states)):
             for action_idx in range(len(Action.get_all_actions())):
                 action = Action.get_all_actions()[action_idx]
-                end_state_idxs, probabilities = self.get_transitions(start_state_idx, action, self.num_transition_samples)
+                transitions = self.get_transitions(start_state_idx, action, self.num_transition_samples)
                 # print(zip(end_state_idxs, probabilities))
                 # [start_state_idx, end_state_idx, action, probability]
-                for end_state_idx in range(len(end_state_idxs)):
-                    self.roadmap[start_state_idx][end_state_idx][action_idx] = probabilities[end_state_idx]
+                for end_state_idx, probability in transitions.iteritems():
+                    self.roadmap[start_state_idx][end_state_idx][action_idx] = probability
             # print("num transitions = {}".format(transitions))
-            transitions += 1
-        print(self.roadmap)
+            num_transitions += 1
 
     '''
         Function: get_transitions()
@@ -160,7 +159,6 @@ class MarkovModel(object):
         for sample_num in range(0, num_samples):
             sample_state = self.generate_sample_transition(start_state_idx, action)
             end_state_idx = self.get_closest_state_idx(sample_state)
-            # print("End_state_idx: {}".format(end_state_idx))
 
             # Update the probability, or add new state
             if end_state_idx in transitions:
@@ -168,7 +166,7 @@ class MarkovModel(object):
             else:
                 transitions[end_state_idx] = 1.0 / num_samples
 
-        return (transitions.keys(), transitions.values())
+        return transitions
 
     '''
         Function: get_closest_state_idx
