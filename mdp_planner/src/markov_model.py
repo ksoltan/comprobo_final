@@ -309,7 +309,7 @@ class MarkovModel(object):
                     self.get_transition_markers(start_state_idx, end_state_idx, Action.get_all_actions()[action_idx], probability)
 
                 if(start_pose != None and probability > 0.2):
-                    print("Finding viz for start: {}, end: {}, action: {}".format(start_state_idx, end_state_idx, action_idx))
+                    # print("Finding viz for start: {}, end: {}, action: {}".format(start_state_idx, end_state_idx, action_idx))
 
                     if(filter == "END_STATE" or filter == "START_STATE"):
                         start_marker.id = count
@@ -382,10 +382,10 @@ if __name__ == "__main__":
     # model.visualize_roadmap(filter="START_STATE", filter_value=0)
     while not rospy.is_shutdown():
         r = rospy.Rate(0.5)
-        model.visualize_roadmap(filter="START_STATE", filter_value=0)
+        # model.visualize_roadmap(filter="START_STATE", filter_value=0)
         # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.LEFT))
         # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.FORWARD))
-        # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.RIGHT))
+        model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.RIGHT))
         # model.visualize_roadmap(filter="END_STATE", filter_value=50)
         # model.visualize_roadmap(filter="START_STATE", filter_value=0)
         r.sleep()
