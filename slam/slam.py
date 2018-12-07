@@ -60,8 +60,8 @@ class Map():
 			start_point = [(self.origin[0] + self.pose[0]-scan_size/2),
 			(self.origin[1] + self.pose[1] + scan_size/2)]
 
-			for i in scan_size: #compare the scan_map to the scan.
-				for j in scan_size:
+			for i in range(0, scan_size): #compare the scan_map to the scan.
+				for j in range(0, scan_size):
 					new_scan  = scan_map[i][j]
 					reference = self.map[start_point[0] + i][start_point[1] + j] #equivalent point on map
 					#based on priority. 1 is a solid wall and always takes priority.
