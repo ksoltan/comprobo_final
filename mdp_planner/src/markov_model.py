@@ -30,7 +30,7 @@ class MarkovModel(object):
         self.kd_tree = None
 
         # Roadmap is a three dim array, axis 0 = start_state_idx, axis 1 = end_state_idx, axis_2 = action idx in list
-        self.roadmap = np.zeros([self.num_states, self.num_states, len(Action.get_all_actions())])
+        self.roadmap = np.zeros([len(Action.get_all_actions()), self.num_states, self.num_states])
         print("Empty roadmap")
         print(self.roadmap)
 
@@ -129,14 +129,14 @@ class MarkovModel(object):
     def build_roadmap(self, num_samples=100):
         print("Building roadmap.")
         num_transitions = 0
-        for start_state_idx in range(len(self.model_states)):
-            for action_idx in range(len(Action.get_all_actions())):
+        for action_idx in range(len(Action.get_all_actions())):
+            for start_state_idx in range(len(self.model_states)):
                 action = Action.get_all_actions()[action_idx]
                 transitions = self.get_transitions(start_state_idx, action, self.num_transition_samples)
                 # print(zip(end_state_idxs, probabilities))
                 # [start_state_idx, end_state_idx, action, probability]
                 for end_state_idx, probability in transitions.iteritems():
-                    self.roadmap[start_state_idx][end_state_idx][action_idx] = probability
+                    self.roadmap[action_idx][start_state_idx][end_state_idx] = probability
             # print("num transitions = {}".format(transitions))
             num_transitions += 1
 
@@ -227,7 +227,8 @@ class MarkovModel(object):
 
     '''
     def get_probability(self, start_state_idx, end_state_idx, action):
-        return self.roadmap[start_state_idx][end_state_idx][action]
+        action_idx = Action.get_all_actions().index(action)
+        return self.roadmap[action_idx][start_state_idx][end_state_idx]
 
     def is_collision_free_path(self, start_state_idx, end_state_idx):
         for angle in np.linspace(0, 2 * math.pi, num_circle_points):
@@ -278,11 +279,11 @@ class MarkovModel(object):
 
         transitions = []
         if(filter == "START_STATE"):
-            transitions = self.roadmap[filter_value, :, :]
-        elif(filter == "END_STATE"):
             transitions = self.roadmap[:, filter_value, :]
-        elif(filter == "ACTION"):
+        elif(filter == "END_STATE"):
             transitions = self.roadmap[:, :, filter_value]
+        elif(filter == "ACTION"):
+            transitions = self.roadmap[filter_value, :, :]
 
         print(transitions.shape)
 
@@ -290,20 +291,20 @@ class MarkovModel(object):
         for i in range(transitions.shape[0]):
             for j in range(transitions.shape[1]):
                 if(filter == "START_STATE"):
+                    action_idx = i
                     start_state_idx = filter_value
-                    end_state_idx = i
-                    action_idx = j
-                    probability = self.roadmap[start_state_idx][end_state_idx][action_idx]
+                    end_state_idx = j
+                    probability = self.roadmap[action_idx][start_state_idx][end_state_idx]
                 elif(filter == "END_STATE"):
-                    start_state_idx = i
+                    action_idx = i
+                    start_state_idx = j
                     end_state_idx = filter_value
-                    action_idx = j
-                    probability = self.roadmap[start_state_idx][end_state_idx][action_idx]
+                    probability = self.roadmap[action_idx][start_state_idx][end_state_idx]
                 elif(filter == "ACTION"):
+                    action_idx = filter_value
                     start_state_idx = i
                     end_state_idx = j
-                    action_idx = filter_value
-                    probability = self.roadmap[start_state_idx][end_state_idx][action_idx]
+                    probability = self.roadmap[action_idx][start_state_idx][end_state_idx]
                 else:
                     continue
                 start_pose, start_marker, end_pose, end_marker, arrow_marker = \
@@ -371,7 +372,7 @@ class MarkovModel(object):
         self.marker_pub.publish(marker_arr)
 
 if __name__ == "__main__":
-    model = MarkovModel(num_positions=100, num_orientations=1)
+    model = MarkovModel(num_positions=10, num_orientations=1)
     print("model.map.info: {}".format(model.map.info))
     model.make_states()
     print("Validate is_collision_free - should be False: {}".format(model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
@@ -383,9 +384,9 @@ if __name__ == "__main__":
     # model.visualize_roadmap(filter="START_STATE", filter_value=0)
     while not rospy.is_shutdown():
         r = rospy.Rate(0.5)
-        model.visualize_roadmap(filter="START_STATE", filter_value=0)
+        # model.visualize_roadmap(filter="START_STATE", filter_value=0)
         # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.LEFT))
-        # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.FORWARD))
+        model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.FORWARD))
         # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.RIGHT))
         # model.visualize_roadmap(filter="END_STATE", filter_value=50)
         # model.visualize_roadmap(filter="START_STATE", filter_value=0)

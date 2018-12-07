@@ -183,8 +183,9 @@ class MDP(object):
         p_matrix = np.empty([self.num_states, self.num_states])
         for start_state_idx in range(self.num_states):
             for end_state_idx in range(self.num_states):
+                action = self.policy[start_state_idx]
                 p_matrix[start_state_idx][end_state_idx] = \
-                        self.markov_model.get_probability(start_state_idx, end_state_idx, self.policy[start_state_idx])
+                        self.markov_model.get_probability(start_state_idx, end_state_idx, action)
         return p_matrix
 
     """
@@ -201,10 +202,10 @@ class MDP(object):
         all_actions = Action.get_all_actions()
         ps_matrix = np.empty([len(all_actions), self.num_states])
         for i in range(len(all_actions)):
-            a = all_actions[i]
+            action = all_actions[i]
             for j in range(self.num_states):
                 start_state_idx = j
-                ps_matrix[i][j] = self.markov_model.get_probability(start_state_idx, state_idx, a)
+                ps_matrix[i][j] = self.markov_model.get_probability(start_state_idx, state_idx, action)
         return ps_matrix
 
     def visualize_policy(self):
@@ -241,7 +242,6 @@ if __name__ == "__main__":
     print("Validate is_collision_free - should be False: {}".format(mdp.markov_model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(mdp.markov_model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
     mdp.markov_model.print_states()
-    # print(mdp.markov_model.get_probability(3, 0, Action.FORWARD))
     mdp.set_goal_state(State(x=1, y=1, theta=math.radians(40)))
     mdp.set_rewards()
     print(mdp.rewards)

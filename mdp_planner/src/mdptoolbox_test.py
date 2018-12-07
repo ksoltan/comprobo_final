@@ -39,7 +39,7 @@ class MDP(object):
 
     '''
     def get_policy(self, goal_state, reward_radius=0.15):
-        transition_probabilities = self.get_transition_probabilities() # Shape (A, S, S)
+        transition_probabilities = self.markov_model.roadmap # Shape (A, S, S)
         goal_state_idx = self.get_goal_state_idx(goal_state)
         print("Goal state idx: {}".format(goal_state_idx))
         rewards = self.get_rewards(goal_state_idx, reward_radius) # Shape (S,)
@@ -49,24 +49,6 @@ class MDP(object):
         pi.run()
 
         return pi.policy, pi.iter, pi.time
-
-
-    """
-        Function: get_transition_probabilities
-        Inputs:
-
-        Returns an array of shape (A, S, S) built from the markov_model roadmap,
-        which has shape (S, S, A).
-    """
-    def get_transition_probabilities(self):
-        old_shape = self.markov_model.roadmap.shape
-        new_roadmap = np.empty((old_shape[2], old_shape[0], old_shape[1]))
-
-        for i in range(old_shape[0]):
-            for j in range(old_shape[1]):
-                for k in range(old_shape[2]):
-                    new_roadmap[k][i][j] = self.markov_model.roadmap[i][j][k]
-        return new_roadmap
 
     """
         Function: get_goal_state_idx
@@ -153,7 +135,6 @@ if __name__ == "__main__":
     print("Validate is_collision_free - should be False: {}".format(mdp.markov_model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(mdp.markov_model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
     # mdp.markov_model.print_states()
-    # print(mdp.markov_model.get_probability(3, 0, Action.FORWARD))
     goal_state = State(x=1, y=1, theta=math.radians(40))
     policy, iter, time = mdp.get_policy(goal_state)
     print("Converged: iter: {}, time: {}".format(iter, time))

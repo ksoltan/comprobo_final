@@ -94,7 +94,7 @@ class Robot(object):
         return np.asscalar(closest_state_idx[0])
 
 if __name__ == "__main__":
-    mdp = MDP(num_positions=100, num_orientations=10)
+    mdp = MDP(num_positions=100, num_orientations=1)
     print("model.map.info: {}".format(mdp.markov_model.map.info))
     print("Validate is_collision_free - should be False: {}".format(mdp.markov_model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(mdp.markov_model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
