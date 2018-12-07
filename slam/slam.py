@@ -39,10 +39,10 @@ def map_from_scan(scan, pose, resolution, max_scan):
 		for dist in range(int(round(end_dist/resolution))):
 			x = (dist*resolution)*math.cos(pose[2] + math.radians(angle))
 			y = (dist*resolution)*math.sin(pose[2] + math.radians(angle))
-			map_[int(round(x/resolution))][int(round(y/resolution))] = (WALL if map_[int(round(x/resolution))][int(round(y/resolution))] == WALL else EMPTY)
+			map_[int(round(x/resolution + len(map_)/2))][int(round(y/resolution + len(map_[0])/2))] = (WALL if (map_[int(round(x/resolution))][int(round(y/resolution))] == WALL) else EMPTY)
 
 		if end_dist != max_scan:
-			map_[int(round(x/resolution))][int(round(y/resolution))] = WALL
+			map_[int(round(x/resolution + len(map_)/2))][int(round(y/resolution + len(map_[0])/2))] = WALL
 
 	return Map(map_, resolution)
 
@@ -132,7 +132,7 @@ class Slammer():
 		self.scan = []
 		self.get_new_scan = True
 		self.max_scan = 3
-		self.resolution = 0.005
+		self.resolution = 0.01
 		self.pose = (0, 0, 0)
 		self.map_ = None
 
