@@ -56,28 +56,45 @@ class MarkovModel(object):
         Overwrites the current set of self.model_states.
 
     '''
-    def make_states(self):
+    def make_states(self, grid_debug=False):
         self.model_states = []
         poses = []
         # np.random.seed(0)
         count = 0
         map_x_range = (self.map.info.origin.position.x, self.map.info.origin.position.x + self.map.info.width * self.map.info.resolution)
         map_y_range = (self.map.info.origin.position.y, self.map.info.origin.position.y + self.map.info.height * self.map.info.resolution)
+        if(grid_debug):
+            num_x_pos = int(math.sqrt(self.num_positions * (map_x_range[1] - map_x_range[0]) / (map_y_range[1] - map_y_range[0])))
+            num_y_pos = int(self.num_positions / num_x_pos)
+            print("{} x {}".format(num_x_pos, num_y_pos))
+            for x in np.linspace(map_x_range[0], map_x_range[1], num_x_pos + 10):
+                for y in np.linspace(map_y_range[0], map_y_range[1], num_y_pos + 10):
+                    for angle in np.linspace(0, 2 * math.pi, self.num_orientations, endpoint=False):
+                        if self.is_collision_free((x, y)):
+                            self.model_states.append(State(x=x, y=y, theta=angle))
+                            poses.append([x, y, angle])
+                            print("Num states = {}".format(count))
+                            count += 1
+            # Re-initialize lists with different state numbers!
+            self.num_states = count
+            self.roadmap = np.zeros([len(Action.get_all_actions()), self.num_states, self.num_states])
+            print(poses)
+        else:
+            while len(self.model_states) < self.num_states:
+                sampled_position = (np.random.uniform(*map_x_range), np.random.uniform(*map_y_range))
 
-        while len(self.model_states) < self.num_states:
-            sampled_position = (np.random.uniform(*map_x_range), np.random.uniform(*map_y_range))
-
-            # Add state only if it does not generate a collision.
-            if self.is_collision_free(sampled_position):
-                # Add multiple orientations
-                for i in range(self.num_orientations):
-                    angle = np.random.uniform(0, 2 * math.pi)
-                    self.model_states.append(State(x=sampled_position[0],
-                                                   y=sampled_position[1],
-                                                   theta=angle))
-                    poses.append([sampled_position[0], sampled_position[1], angle])
-                    print("Num states = {}".format(count))
-                    count += 1
+                # Add state only if it does not generate a collision.
+                if self.is_collision_free(sampled_position):
+                    # Add multiple orientations
+                    for i in range(self.num_orientations):
+                        angle = np.random.uniform(0, 2 * math.pi)
+                        self.model_states.append(State(x=sampled_position[0],
+                                                       y=sampled_position[1],
+                                                       theta=angle))
+                        print("Trying: x: {}, y: {}, theta: {}".format(sampled_position[0], sampled_position[1], math.degrees(angle)))
+                        poses.append([sampled_position[0], sampled_position[1], angle])
+                        print("Num states = {}".format(count))
+                        count += 1
 
         self.kd_tree = KDTree(poses, metric='euclidean')
         # Note: Is this better than doing  a list comprehension on self.model_states memory-wise?
@@ -372,9 +389,9 @@ class MarkovModel(object):
         self.marker_pub.publish(marker_arr)
 
 if __name__ == "__main__":
-    model = MarkovModel(num_positions=10, num_orientations=1)
+    model = MarkovModel(num_positions=20, num_orientations=5)
     print("model.map.info: {}".format(model.map.info))
-    model.make_states()
+    model.make_states(grid_debug=True)
     print("Validate is_collision_free - should be False: {}".format(model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
     model.build_roadmap()
@@ -388,6 +405,6 @@ if __name__ == "__main__":
         # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.LEFT))
         model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.FORWARD))
         # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.RIGHT))
-        # model.visualize_roadmap(filter="END_STATE", filter_value=50)
+        # model.visualize_roadmap(filter="END_STATE", filter_value=4)
         # model.visualize_roadmap(filter="START_STATE", filter_value=0)
         r.sleep()
