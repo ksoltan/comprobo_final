@@ -1,6 +1,6 @@
 import rospy
 from nav_msgs.srv import GetMap
-from visualization_msgs.msg import MarkerArray
+from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import PoseArray
 
 import numpy as np
@@ -47,6 +47,13 @@ class MarkovModel(object):
         self.state_pose_pub = rospy.Publisher('/state_pose_array', PoseArray, queue_size=10)
         self.marker_pub = rospy.Publisher('/marker_array', MarkerArray, queue_size=10)
 
+        # More granular state transition visualizations (reused topics from simulate_policy and mdptoolbox_test)
+        self.robot_state_pub = rospy.Publisher('/robot_state_marker', Marker, queue_size=10)
+        self.robot_state_pose_pub = rospy.Publisher('/robot_state_pose', PoseArray, queue_size=10)
+        self.turn_right_pub = rospy.Publisher('/right_pose_array', PoseArray, queue_size=10)
+        self.turn_left_pub = rospy.Publisher('/left_pose_array', PoseArray, queue_size=10)
+        self.forward_pub = rospy.Publisher('/forward_pose_array', PoseArray, queue_size=10)
+
     '''
         Function: make_states
         Inputs:
@@ -63,6 +70,7 @@ class MarkovModel(object):
         count = 0
         map_x_range = (self.map.info.origin.position.x, self.map.info.origin.position.x + self.map.info.width * self.map.info.resolution)
         map_y_range = (self.map.info.origin.position.y, self.map.info.origin.position.y + self.map.info.height * self.map.info.resolution)
+
         if(grid_debug):
             num_x_pos = int(math.sqrt(self.num_positions * (map_x_range[1] - map_x_range[0]) / (map_y_range[1] - map_y_range[0])))
             num_y_pos = int(self.num_positions / num_x_pos)
@@ -282,6 +290,59 @@ class MarkovModel(object):
             print(i)
 
     '''
+        Function: visualize_state_transitions
+        Inputs: string Filter - Choose from START_STATE, END_STATE, ACTION. Parameter by which to sort roadmap
+                int filter_value - start_state_idx, end_state_idx, or action_idx depending on Filter
+
+        More granular visualization of the transitions that can happen from state to state.
+        Prompts for input.
+
+    '''
+    def visualize_state_transitions(self, start_state_idx=0):
+        # Display the start state in blue.
+        state = self.model_states[start_state_idx]
+        robot_pose = PoseArray()
+        robot_pose.header.frame_id = "map"
+        robot_pose.poses = [state.get_pose()]
+
+        self.robot_state_pose_pub.publish(robot_pose)
+        self.robot_state_pub.publish(state.get_marker(r=0.0, g=0.0, b=1.0, scale=0.15, lifetime=100))
+
+        turn_left_array = PoseArray()
+        turn_right_array = PoseArray()
+        forward_array = PoseArray()
+
+        turn_left_array.header.frame_id = "map"
+        turn_right_array.header.frame_id = "map"
+        forward_array.header.frame_id = "map"
+
+        probability = 0
+        for action_idx in range(self.roadmap.shape[0]):
+            for end_state_idx in range(self.roadmap.shape[2]):
+                action = Action.get_all_actions()[action_idx]
+                probability = self.roadmap[action_idx][start_state_idx][end_state_idx]
+
+                if(probability > 0.1):
+                    print("Finding viz for start: {}, end: {}, action: {}, prob: {}".format(start_state_idx, end_state_idx, action_idx, probability))
+                    end_state_pose = self.model_states[end_state_idx].get_pose()
+                    if(action == Action.LEFT):
+                        turn_left_array.poses.append(end_state_pose)
+                    elif(action == Action.RIGHT):
+                        turn_right_array.poses.append(end_state_pose)
+                    else:
+                        forward_array.poses.append(end_state_pose)
+
+        self.turn_left_pub.publish(turn_left_array)
+        self.turn_right_pub.publish(turn_right_array)
+        self.forward_pub.publish(forward_array)
+        print("Would you like to visualize another state?")
+        if(raw_input() in ['n', 'NO', 'N', 'no']):
+            print("Exiting")
+        else:
+            print("Enter start state: ")
+            self.visualize_state_transitions(start_state_idx=input())
+
+    '''
         Function: visualize_roadmap
         Inputs: string Filter - Choose from START_STATE, END_STATE, ACTION. Parameter by which to sort roadmap
                 int filter_value - start_state_idx, end_state_idx, or action_idx depending on Filter
@@ -327,7 +388,7 @@ class MarkovModel(object):
                 start_pose, start_marker, end_pose, end_marker, arrow_marker = \
                     self.get_transition_markers(start_state_idx, end_state_idx, Action.get_all_actions()[action_idx], probability)
 
-                if(start_pose != None and probability > 0.2):
+                if(start_pose != None and probability > 0.001):
                     print("Finding viz for start: {}, end: {}, action: {}".format(start_state_idx, end_state_idx, action_idx))
 
                     if(filter == "END_STATE" or filter == "START_STATE"):
@@ -397,14 +458,15 @@ if __name__ == "__main__":
     model.build_roadmap()
     print(model.roadmap)
     model.clear_visualization()
+    model.visualize_state_transitions(start_state_idx=0)
     # model.print_states()
     # model.visualize_roadmap(filter="START_STATE", filter_value=0)
-    while not rospy.is_shutdown():
-        r = rospy.Rate(0.5)
-        # model.visualize_roadmap(filter="START_STATE", filter_value=0)
-        # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.LEFT))
-        model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.FORWARD))
-        # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.RIGHT))
-        # model.visualize_roadmap(filter="END_STATE", filter_value=4)
-        # model.visualize_roadmap(filter="START_STATE", filter_value=0)
-        r.sleep()
+    # while not rospy.is_shutdown():
+    #     r = rospy.Rate(0.5)
+    #     model.visualize_roadmap(filter="START_STATE", filter_value=4)
+    #     # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.LEFT))
+    #     # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.FORWARD))
+    #     # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.RIGHT))
+    #     # model.visualize_roadmap(filter="END_STATE", filter_value=4)
+    #     # model.visualize_roadmap(filter="START_STATE", filter_value=0)
+    #     r.sleep()

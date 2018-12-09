@@ -45,7 +45,7 @@ class State(object):
     def distance_to(self, other):
         return State.distance_between(self.get_pose_xytheta(), other.get_pose_xytheta())
 
-    def get_marker(self, r=0.0, g=1.0, b=0.0, scale=0.15):
+    def get_marker(self, r=0.0, g=1.0, b=0.0, scale=0.15, lifetime=2):
         marker = Marker()
         marker.header.stamp = rospy.Time.now()
         marker.header.frame_id = "map"
@@ -62,7 +62,7 @@ class State(object):
 
         marker.pose.position.x = self.x
         marker.pose.position.y = self.y
-        marker.lifetime = rospy.Time(2)
+        marker.lifetime = rospy.Time(lifetime)
 
         return marker
 
