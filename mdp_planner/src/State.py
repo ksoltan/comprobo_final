@@ -24,12 +24,26 @@ class State(object):
         Returns the weighted distance between two poses which are tuples of
         (x, y, theta). Used in the BallTree computation.
     '''
+    # Made sense when trying to call the function from kd-tree
+    # @staticmethod
+    # def distance_between(pose1, pose2, alpha=1):
+    #     # TODO: Check how to weight relative orientation and distance
+    #     return math.sqrt((pose1[0] - pose2[0])**2 +
+    #                      (pose1[1] - pose2[1])**2 +
+    #                      alpha * (math.pi - abs(abs(pose1[2] - pose2[2]) - math.pi)))  # Wraparound magic
+    
+    # def distance_to(self, other):
+    #     return State.distance_between(self.get_pose_xytheta(), other.get_pose_xytheta())
+
     @staticmethod
-    def distance_between(pose1, pose2, alpha=1):
+    def angle_diff(angle, other):
+        return math.pi - abs(abs(angle - other) - math.pi)  # Wraparound magic
+
+    def distance_to(self, other, alpha=1):
         # TODO: Check how to weight relative orientation and distance
-        return math.sqrt((pose1[0] - pose2[0])**2 +
-                         (pose1[1] - pose2[1])**2 +
-                         alpha*(pose1[2] - pose2[2])**2)
+        return math.sqrt((self.x - other.x)**2 +
+                         (self.y - other.y)**2 +
+                         alpha * self.angle_diff(self.theta, other.theta))
 
     def get_pose_xytheta(self):
         return (self.x, self.y, self.theta)
@@ -42,8 +56,6 @@ class State(object):
         including both position and orientation.
 
     '''
-    def distance_to(self, other):
-        return State.distance_between(self.get_pose_xytheta(), other.get_pose_xytheta())
 
     def get_marker(self, r=0.0, g=1.0, b=0.0, scale=0.15):
         marker = Marker()
