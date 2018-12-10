@@ -473,16 +473,16 @@ if __name__ == "__main__":
     model.build_roadmap()
     print(model.roadmap)
     model.clear_visualization()
-    # model.print_states()
-    # model.visualize_roadmap(filter="START_STATE", filter_value=0)
-    # while not rospy.is_shutdown():
-    #     r = rospy.Rate(0.5)
-    #     # model.visualize_roadmap(filter="START_STATE", filter_value=0)
-    #     # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.LEFT))
+    model.print_states()
+    model.visualize_roadmap(filter="START_STATE", filter_value=0)
+    while not rospy.is_shutdown():
+        r = rospy.Rate(0.5)
+        # model.visualize_roadmap(filter="START_STATE", filter_value=0)
+        # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.LEFT))
         
-    #     model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.FORWARD))
+        model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.FORWARD))
         
-    #     # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.RIGHT))
-    #     # model.visualize_roadmap(filter="END_STATE", filter_value=4)
-    #     # model.visualize_roadmap(filter="START_STATE", filter_value=0)
-    #     r.sleep()
+        # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.RIGHT))
+        # model.visualize_roadmap(filter="END_STATE", filter_value=4)
+        # model.visualize_roadmap(filter="START_STATE", filter_value=0)
+        r.sleep()
