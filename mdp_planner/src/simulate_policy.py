@@ -65,7 +65,7 @@ class Robot(object):
             print(Action.to_str(action))
             new_state = self.move(action)
             # Update state idx.
-            self.state_idx = self.get_closest_state_idx(new_state)
+            self.state_idx = self.get_closest_state_idx(new_state, self.state_idx)
             states.append(self.model_states[self.state_idx])
         return states
 
@@ -89,16 +89,18 @@ class Robot(object):
 
         return State(x=end_x, y=end_y, theta=end_theta)
 
-    def get_closest_state_idx(self, sample_state):
-        distance, closest_state_idx = self.kd_tree.query(np.array([sample_state.get_pose_xytheta()]))
-        return np.asscalar(closest_state_idx[0])
+    def get_closest_state_idx(self, sample_state, start_state_idx):
+        distance, closest_state_idx = self.kd_tree.query(np.array([sample_state.get_pose_xytheta()]), k=2)
+        if(closest_state_idx[0][0] == start_state_idx):
+            return np.asscalar(closest_state_idx[0][1])
+        return np.asscalar(closest_state_idx[0][0])
 
 if __name__ == "__main__":
-    mdp = MDP(num_positions=100, num_orientations=1)
+    mdp = MDP(num_positions=100, num_orientations=1, grid_debug=True)
     print("model.map.info: {}".format(mdp.markov_model.map.info))
     print("Validate is_collision_free - should be False: {}".format(mdp.markov_model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(mdp.markov_model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
     # mdp.markov_model.print_states()
     # print(mdp.markov_model.get_probability(3, 0, Action.FORWARD))
     robit = Robot(mdp, goal_state=State(x=0, y=-2, theta=math.radians(10)), start_state_idx=0)
-    robit.simulate_policy()
+    robit.simulate_policy(iterations=20)

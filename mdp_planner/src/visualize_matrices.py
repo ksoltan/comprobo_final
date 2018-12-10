@@ -57,14 +57,13 @@ def viz_iteration_process(mdp):
     ps_matrix_fig, ps_matrix_ax = plt.subplots()
     v_func_fig, v_func_ax = plt.subplots()
 
-    while raw_input("Continue?") not in ['n', 'NO', 'N', 'no']:
+    while raw_input() not in ['n', 'NO', 'N', 'no']:
         # Value Function
         # Show P Matrix
         viz_2D_pcolor_matrix(mdp.build_p_matrix(), p_matrix_ax, p_matrix_fig, 'Start State', 'End State', 'P Matrix')
         # Show Value function
         if(mdp.solve_value_function()):
             viz_value_function(mdp.value_function, v_func_ax, v_func_fig, 'Value', 'State', 'Value Function')
-            mdp.get_new_policy()
         else:
             print("Failed to solve for a value function, trying a new random policy")
             # Singular matrix solution to V
@@ -72,32 +71,32 @@ def viz_iteration_process(mdp):
         plt.show()
         # Start policy iteration
         # Show PS matrix
-        # idx = 0
-        # gamma = 0.999
-        # all_actions = Action.get_all_actions()
-        # visualize = True
-        # for state_idx in range(self.num_states):
-        #     if(raw_input() in ['n', 'NO', 'N', 'no']):
-        #         visualize = False
-        #     ps_matrix = self.build_ps_matrix(state_idx)
-        #     state_rewards = self.rewards[state_idx] + gamma * ps_matrix.dot(self.value_function)
-        #     idx_action = state_rewards.argmax()
-        #     total_change += self.policy[state_idx] - all_actions[idx_action]
-        #     self.policy[state_idx] = all_actions[idx_action]
-        #     if(visualize):
-        #
-        #     viz_2D_pcolor_matrix(mdp.build_ps_matrix(idx), p_matrix_ax, p_matrix_fig, 'Start State', 'End State', 'PS Matrix')
-        #     idx += 1
-        #     plt.show()
+        idx = 0
+        gamma = 0.999
+        all_actions = Action.get_all_actions()
+        visualize = True
+        for state_idx in range(self.num_states):
+            if(raw_input() in ['n', 'NO', 'N', 'no']):
+                visualize = False
+            ps_matrix = self.build_ps_matrix(state_idx)
+            state_rewards = self.rewards[state_idx] + gamma * ps_matrix.dot(self.value_function)
+            idx_action = state_rewards.argmax()
+            total_change += self.policy[state_idx] - all_actions[idx_action]
+            self.policy[state_idx] = all_actions[idx_action]
+            if(visualize):
+
+            viz_2D_pcolor_matrix(mdp.build_ps_matrix(idx), p_matrix_ax, p_matrix_fig, 'Start State', 'End State', 'PS Matrix')
+            idx += 1
+            plt.show()
 
 
-        # print("iteration {}".format(iteration_count))
-        # iteration_count += 1
-        # # Find V of this policy.
-        # solved = mdp.solve_value_function()
-        # if(solved):
-        #     # Calculate new policy.
-        #     mdp.get_new_policy()
+        print("iteration {}".format(iteration_count))
+        iteration_count += 1
+        # Find V of this policy.
+        solved = mdp.solve_value_function()
+        if(solved):
+            # Calculate new policy.
+            mdp.get_new_policy()
         print("Would you like to run the next iter?")
 
 
@@ -108,8 +107,7 @@ if __name__ == "__main__":
     print("Validate is_collision_free - should be False: {}".format(mdp.markov_model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(mdp.markov_model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
     mdp.markov_model.build_roadmap()
-    print("Done!")
-    viz_iteration_process(mdp)
+
     # scatter_3D_prob_matrix(mdp.markov_model.roadmap)
 
     # Generate random policy

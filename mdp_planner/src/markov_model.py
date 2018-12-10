@@ -183,7 +183,7 @@ class MarkovModel(object):
         transitions = {}
         for sample_num in range(0, num_samples):
             sample_state = self.generate_sample_transition(start_state_idx, action)
-            end_state_idx = self.get_closest_state_idx(sample_state)
+            end_state_idx = self.get_closest_state_idx(sample_state, start_state_idx)
 
             # Update the probability, or add new state
             if end_state_idx in transitions:
@@ -196,17 +196,22 @@ class MarkovModel(object):
     '''
         Function: get_closest_state_idx
         Inputs: State sample_state
+                int start_state_idx - Optional
 
         Return the index of state in self.model_states with
         minimum distance to sample_state.
 
     '''
-    def get_closest_state_idx(self, sample_state):
-        distance, closest_state_idx = self.kd_tree.query(np.array([sample_state.get_pose_xytheta()]))
-        res_state = self.model_states[np.asscalar(closest_state_idx[0])]
+    def get_closest_state_idx(self, sample_state, start_state_idx=-1):
+        distance, closest_state_idx = self.kd_tree.query(np.array([sample_state.get_pose_xytheta()]), k=2)
+        if(closest_state_idx[0][0] == start_state_idx):
+            if(start_state_idx == 4):
+                print("Chose state {}. Diff in Distance =  {}".format(closest_state_idx[0][1], distance[0][1] - distance[0][0]))
+            return np.asscalar(closest_state_idx[0][1])
+            # res_state = self.model_states[np.asscalar(closest_state_idx[0])]
         # print("Diff x: {} y: {} theta: {}".format(sample_state.x - res_state.x, sample_state.y - res_state.y, sample_state.theta - res_state.theta))
 
-        return np.asscalar(closest_state_idx[0])
+        return np.asscalar(closest_state_idx[0][0])
 
     '''
         Function: generate_sample_transition
@@ -232,7 +237,6 @@ class MarkovModel(object):
 
         linear, angular = Action.get_pose_change(action)
         # print("Lin: {}, ang: {}".format(linear, angular))
-
 
         end_x = start_x + np.random.normal(linear * math.cos(start_theta), pos_sd)
         end_y = start_y + np.random.normal(linear * math.sin(start_theta), pos_sd)
@@ -295,7 +299,8 @@ class MarkovModel(object):
                 int filter_value - start_state_idx, end_state_idx, or action_idx depending on Filter
 
         More granular visualization of the transitions that can happen from state to state.
-        Prompts for input.
+        Prompts for input. Enter n/no if want to exit. Otherwaise, press an key, and then enter an integer
+        for the state idx to visualize. No checks on whether it is an allowable idx are performed.
 
     '''
     def visualize_state_transitions(self, start_state_idx=0):

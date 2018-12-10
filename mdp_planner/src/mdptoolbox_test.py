@@ -14,13 +14,15 @@ import mdptoolbox # Must install mdptoolbox following documentation.
 
 '''
 class MDP(object):
-    def __init__(self, num_positions=1000, num_orientations=10, map=None):
+    def __init__(self, num_positions=1000, num_orientations=10, map=None, grid_debug=False):
         # Build the markov model
         self.markov_model = MarkovModel(num_positions=num_positions, num_orientations=num_orientations, map=map)
-        self.markov_model.make_states()
+        self.markov_model.make_states(grid_debug=grid_debug)
         self.markov_model.build_roadmap()
-
         self.num_states = num_positions * num_orientations # S
+        if(grid_debug):
+            self.num_states = self.markov_model.num_states
+
 
         # Visualization
         self.turn_right_pub = rospy.Publisher('/right_pose_array', PoseArray, queue_size=10)
