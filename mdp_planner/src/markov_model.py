@@ -29,7 +29,7 @@ def draw_progress_bar(percent, bar_length=30):
     scale = bar_length / 100.0
     completed = percent * scale
     remaining = (100 - percent) * scale
-    sys.stdout.write("\r[" + "=" * int(round(completed)) + ' ' * int(round(remaining)) + ']   {:2f}% '.format(percent))
+    sys.stdout.write("\r[" + "=" * int(round(completed)) + ' ' * int(round(remaining)) + ']   {:4.2f}% '.format(percent))
     sys.stdout.flush()
 
 class MarkovModel(object):
@@ -212,8 +212,8 @@ class MarkovModel(object):
         # TODO: include a dedicated Obstacle state?
         transitions = {}
         for sample_num in range(0, num_samples):
-            sample_state = self.generate_sample_transition(start_state_idx, action)
-            end_state_idx = self.get_closest_state_idx(sample_state)
+            target_state = self.generate_sample_transition(start_state_idx, action)
+            end_state_idx = self.get_closest_state_idx(target_state, start_state_idx=start_state_idx)
 
             # Update the probability, or add new state
             if end_state_idx in transitions:
@@ -225,38 +225,42 @@ class MarkovModel(object):
 
     '''
         Function: get_closest_state_idx
-        Inputs: State sample_state
+        Inputs: State target_state
 
         Return the index of state in self.model_states with
-        minimum distance to sample_state.
+        minimum distance to target_state.
 
         Uses a KD Tree to find states with near position, then linearly
         searches for the best combination of position and angle.
 
     '''
-    def get_closest_state_idx(self, sample_state):
+    def get_closest_state_idx(self, target_state, start_state_idx=None):
         num_close_state = 5
-        distances, closest_position_indeces = self.kd_tree.query(np.array([sample_state.get_pose_xytheta()[:2]]), k=num_close_state)
+        distances, closest_position_indeces = self.kd_tree.query(np.array([target_state.get_pose_xytheta()[:2]]), k=num_close_state)
         
-        return self.get_closest_orientation_idx(sample_state, closest_position_indeces[0])
+        return self.get_closest_orientation_idx(target_state, closest_position_indeces[0], start_state_idx=start_state_idx)
 
-    def get_closest_orientation_idx(self, target_state, closest_position_indeces):
+    def get_closest_orientation_idx(self, target_state, closest_position_indeces, start_state_idx=None):
         position = self.positions[closest_position_indeces[0]]
         orientations = self.position_to_states[tuple(position)]
 
-        best_state_idx = self.nearest_angle_state_idx(orientations, target_state.theta)
-        distance = target_state.distance_to(self.model_states[best_state_idx])
+        best_state_idx = None
+        distance = float('inf')
 
-        for position_idx in closest_position_indeces[1:]:
+        for position_idx in closest_position_indeces:
             position = self.positions[position_idx]
             orientations = self.position_to_states[tuple(position)]
             new_state_idx = self.nearest_angle_state_idx(orientations, target_state.theta)
             new_distance = target_state.distance_to(self.model_states[new_state_idx])
 
-            if new_distance < distance:
+            if new_distance < distance and new_state_idx != start_state_idx:
                 distance = new_distance
                 best_state_idx = new_state_idx
-                
+
+        if best_state_idx is None:
+            print("All checked state have distance > inf, returning starting state. This really shouldn't happen.")
+            return start_state_idx
+
         return best_state_idx
 
     '''
@@ -473,16 +477,16 @@ if __name__ == "__main__":
     model.build_roadmap()
     print(model.roadmap)
     model.clear_visualization()
-    model.print_states()
-    model.visualize_roadmap(filter="START_STATE", filter_value=0)
-    while not rospy.is_shutdown():
-        r = rospy.Rate(0.5)
-        # model.visualize_roadmap(filter="START_STATE", filter_value=0)
-        # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.LEFT))
+    # model.print_states()
+    # model.visualize_roadmap(filter="START_STATE", filter_value=0)
+    # while not rospy.is_shutdown():
+    #     r = rospy.Rate(0.5)
+    #     # model.visualize_roadmap(filter="START_STATE", filter_value=0)
+    #     # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.LEFT))
         
-        model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.FORWARD))
+    #     model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.FORWARD))
         
-        # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.RIGHT))
-        # model.visualize_roadmap(filter="END_STATE", filter_value=4)
-        # model.visualize_roadmap(filter="START_STATE", filter_value=0)
-        r.sleep()
+    #     # model.visualize_roadmap(filter="ACTION", filter_value=Action.get_all_actions().index(Action.RIGHT))
+    #     # model.visualize_roadmap(filter="END_STATE", filter_value=4)
+    #     # model.visualize_roadmap(filter="START_STATE", filter_value=0)
+    #     r.sleep()
