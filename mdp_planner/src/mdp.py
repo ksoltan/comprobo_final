@@ -27,6 +27,8 @@ class MDP(object):
         self.markov_model.build_roadmap()
 
         self.num_states = num_positions * num_orientations
+        if(grid_debug):
+            self.num_states = self.markov_model.num_states
 
         self.goal_state_idx = 0
         self.reward_radius = 0
@@ -242,7 +244,7 @@ class MDP(object):
         self.forward_pub.publish(forward_array)
 
 if __name__ == "__main__":
-    mdp = MDP(num_positions=100, num_orientations=10)
+    mdp = MDP(num_positions=100, num_orientations=10, grid_debug=True)
     print("model.map.info: {}".format(mdp.markov_model.map.info))
     print("Validate is_collision_free - should be False: {}".format(mdp.markov_model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(mdp.markov_model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
