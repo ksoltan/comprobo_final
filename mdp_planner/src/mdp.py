@@ -20,10 +20,10 @@ import time
 
 '''
 class MDP(object):
-    def __init__(self, num_positions=1000, num_orientations=10, map=None, grid_debug=False):
+    def __init__(self, num_positions=1000, num_orientations=10, map=None, grid_debug=False, seed=False):
         # Build the markov model
         self.markov_model = MarkovModel(num_positions=num_positions, num_orientations=num_orientations, map=map)
-        self.markov_model.make_states(grid_debug=grid_debug)
+        self.markov_model.make_states(grid_debug=grid_debug, seed=seed)
         self.markov_model.build_roadmap()
 
         self.num_states = num_positions * num_orientations
@@ -72,7 +72,7 @@ class MDP(object):
         low_reward = -1
 
         goal_state = self.markov_model.model_states[self.goal_state_idx]
-        for state_idx in range(self.num_states):
+        for state_idx in xrange(self.num_states):
             s = self.markov_model.model_states[state_idx]
             if goal_state.distance_to(s) < self.reward_radius:
                 self.rewards[state_idx] = high_reward
@@ -130,7 +130,7 @@ class MDP(object):
 
     """
     def get_random_policy(self):
-        return np.random.choice(range(len(Action.get_all_actions())), self.num_states, replace=True)
+        return np.random.choice(range(len(Action.get_all_actions())), self.num_states, replace=True)  # TODO: xrange good here?
 
     """
         Function: get_new_policy
@@ -147,7 +147,7 @@ class MDP(object):
         gamma = 0.999
         all_actions = Action.get_all_actions()
         total_change = 0
-        for state_idx in range(self.num_states):
+        for state_idx in xrange(self.num_states):
             ps_matrix = self.build_ps_matrix(state_idx)
             state_rewards = self.rewards[state_idx] + gamma * ps_matrix.dot(self.value_function)
             idx_action = state_rewards.argmax()
@@ -187,13 +187,10 @@ class MDP(object):
 
     """
     def build_p_matrix(self):
-        # print("Building P matrix")
         p_matrix = np.empty([self.num_states, self.num_states])
-        for start_state_idx in range(self.num_states):
-            for end_state_idx in range(self.num_states):
-                action_idx = self.policy[start_state_idx]
-                p_matrix[start_state_idx][end_state_idx] = \
-                        self.markov_model.get_probability(start_state_idx, end_state_idx, action_idx)
+        for start_state_idx in xrange(self.num_states):
+            action_idx = self.policy[start_state_idx]
+            p_matrix[start_state_idx] = self.markov_model.roadmap[action_idx, start_state_idx, :]
         return p_matrix
 
     """
@@ -228,7 +225,10 @@ class MDP(object):
 
         all_actions = Action.get_all_actions()
         # Add pose of each state to array wih corresponding policy action
-        for state_idx in range(len(policy)):
+        for state_idx in xrange(len(policy)):
+            # print(len(policy))
+            # print(policy[state_idx].shape)
+            # print(type(policy[state_idx]))
             action = all_actions[policy[state_idx]]
             state_pose = self.markov_model.model_states[state_idx].get_pose()
 
@@ -244,7 +244,7 @@ class MDP(object):
         self.forward_pub.publish(forward_array)
 
 if __name__ == "__main__":
-    mdp = MDP(num_positions=100, num_orientations=10, grid_debug=True)
+    mdp = MDP(num_positions=100, num_orientations=10, seed=True)
     print("model.map.info: {}".format(mdp.markov_model.map.info))
     print("Validate is_collision_free - should be False: {}".format(mdp.markov_model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(mdp.markov_model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
@@ -253,9 +253,9 @@ if __name__ == "__main__":
     mdp.set_goal_state(goal_state)
     mdp.set_rewards()
     # print(mdp.rewards)
-    policy = mdp.get_policy()
-
-    while not rospy.is_shutdown():
-        r = rospy.Rate(0.5)
-        mdp.visualize_policy(policy, goal_state)
-        r.sleep()
+    policy, iters, compute_time = mdp.get_policy()
+    #
+    # while not rospy.is_shutdown():
+    #     r = rospy.Rate(0.5)
+    #     mdp.visualize_policy(policy, goal_state)
+    #     r.sleep()
