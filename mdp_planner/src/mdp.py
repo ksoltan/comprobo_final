@@ -7,6 +7,9 @@ from State import State
 from Action import Action
 import math
 import numpy as np
+from scipy.sparse import csr_matrix
+from scipy.sparse.linalg import inv as sparse_inv
+from scipy.sparse.linalg import spsolve
 import time
 
 '''
@@ -164,17 +167,18 @@ class MDP(object):
         Returns false if the matrix is non-invertible.
 
     """
-    def solve_value_function(self):
+    def solve_value_function(self, gamma=0.999):
         print("Solving value function")
         # Build P matrix.
         p_matrix = self.build_p_matrix()
         # print(p_matrix)
 
-        I = np.identity(self.num_states)
-        gamma = 0.999
-        if(np.linalg.det(I - gamma * p_matrix) == 0):
+        A = csr_matrix(np.identity - gamma * p_matrix)
+        b = self.rewards
+
+        if(np.linalg.det(A) == 0):
             return False
-        self.value_function =  np.linalg.inv(I - gamma * p_matrix).dot(self.rewards)
+        self.value_function = spsolve(A, b)
         return True
 
     """
