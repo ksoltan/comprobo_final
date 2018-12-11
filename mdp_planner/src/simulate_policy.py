@@ -15,7 +15,8 @@ class Robot(object):
         self.policy, iter, time = mdp.get_policy(goal_state)
         self.goal_state = goal_state
         print("Converged: iter: {}, time: {}".format(iter, time))
-
+        print(self.policy)
+        self.markov_model = mdp.markov_model
         self.kd_tree = self.mdp.markov_model.kd_tree
         self.model_states = self.mdp.markov_model.model_states
 
@@ -23,7 +24,7 @@ class Robot(object):
         self.robot_state_pose_pub = rospy.Publisher('/robot_state_pose', PoseArray, queue_size=10)
         self.state_idx = start_state_idx
 
-    def simulate_policy(self, iterations=50):
+    def simulate_policy(self, iterations=10):
         robot_states = self.get_states(iterations=iterations)
         r = rospy.Rate(1)
         i = 0
@@ -61,11 +62,13 @@ class Robot(object):
         states = []
         for i in range(iterations):
             # Execute the action at the given state.
-            action = self.policy[self.state_idx]
-            print(Action.to_str(action))
+            action = Action.get_all_actions()[self.policy[self.state_idx]]
+            # print(Action.to_str(action))
             new_state = self.move(action)
             # Update state idx.
-            self.state_idx = self.get_closest_state_idx(new_state, self.state_idx)
+            # print(new_state)
+            self.state_idx = self.markov_model.get_closest_state_idx(new_state, start_state_idx=self.state_idx)
+            # print(self.model_states[self.state_idx])
             states.append(self.model_states[self.state_idx])
         return states
 
@@ -82,21 +85,13 @@ class Robot(object):
         start_theta = start_state.theta
 
         linear, angular = Action.get_pose_change(action)
-
         end_x = start_x + np.random.normal(linear * math.cos(start_theta), pos_sd)
         end_y = start_y + np.random.normal(linear * math.sin(start_theta), pos_sd)
         end_theta = np.random.normal(start_theta + angular, theta_sd) % (2 * math.pi)
-
         return State(x=end_x, y=end_y, theta=end_theta)
 
-    def get_closest_state_idx(self, sample_state, start_state_idx):
-        distance, closest_state_idx = self.kd_tree.query(np.array([sample_state.get_pose_xytheta()]), k=2)
-        if(closest_state_idx[0][0] == start_state_idx):
-            return np.asscalar(closest_state_idx[0][1])
-        return np.asscalar(closest_state_idx[0][0])
-
 if __name__ == "__main__":
-    mdp = MDP(num_positions=100, num_orientations=1, grid_debug=True)
+    mdp = MDP(num_positions=1000, num_orientations=10, grid_debug=False)
     print("model.map.info: {}".format(mdp.markov_model.map.info))
     print("Validate is_collision_free - should be False: {}".format(mdp.markov_model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(mdp.markov_model.is_collision_free((1.2823, 1.054))))  # free in ac109_1

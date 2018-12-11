@@ -11,6 +11,7 @@ import mdptoolbox # Must install mdptoolbox following documentation.
 
 '''
     Use mdptoolbox to solve the mdp created from markov_model.
+    The policy saves action idxs.
 
 '''
 class MDP(object):
@@ -115,9 +116,10 @@ class MDP(object):
         turn_right_array.header.frame_id = "map"
         forward_array.header.frame_id = "map"
 
+        all_actions = Action.get_all_actions()
         # Add pose of each state to array wih corresponding policy action
         for state_idx in range(len(policy)):
-            action = policy[state_idx]
+            action = all_actions[policy[state_idx]]
             state_pose = self.markov_model.model_states[state_idx].get_pose()
 
             if(action == Action.LEFT):
