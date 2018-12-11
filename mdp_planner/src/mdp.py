@@ -7,6 +7,8 @@ from State import State
 from Action import Action
 import math
 import numpy as np
+from scipy.sparse import csr_matrix
+from scipy.sparse.linalg import inv as sparse_inv
 import time
 
 '''
@@ -170,11 +172,12 @@ class MDP(object):
         p_matrix = self.build_p_matrix()
         # print(p_matrix)
 
-        I = np.identity(self.num_states)
+        I = csr_matrix(np.identity(self.num_states))
         gamma = 0.999
-        if(np.linalg.det(I - gamma * p_matrix) == 0):
+        gamma_p = csr_matrix(gamma * p_matrix)
+        if(np.linalg.det(I - gamma * p_matrix) == 0):  # TODO don't recompute maybe
             return False
-        self.value_function =  np.linalg.inv(I - gamma * p_matrix).dot(self.rewards)
+        self.value_function =  sparse_inv(I - gamma_p).dot(self.rewards)
         return True
 
     """
@@ -244,7 +247,7 @@ class MDP(object):
         self.forward_pub.publish(forward_array)
 
 if __name__ == "__main__":
-    mdp = MDP(num_positions=100, num_orientations=10, grid_debug=True)
+    mdp = MDP(num_positions=100, num_orientations=10, seed=True)
     print("model.map.info: {}".format(mdp.markov_model.map.info))
     print("Validate is_collision_free - should be False: {}".format(mdp.markov_model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(mdp.markov_model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
