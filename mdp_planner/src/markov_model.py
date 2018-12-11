@@ -192,8 +192,8 @@ class MarkovModel(object):
 
         for action_idx in range(num_actions):
             for start_state_idx in range(len(self.model_states)):
-                # if start_state_idx % 100 == 0:
-                #     draw_progress_bar(100.0 * (start_state_idx + (len(self.model_states) * action_idx)) / (len(self.model_states) * num_actions))
+                if start_state_idx % 100 == 0:
+                    draw_progress_bar(100.0 * (start_state_idx + (len(self.model_states) * action_idx)) / (len(self.model_states) * num_actions))
 
                 action = Action.get_all_actions()[action_idx]
                 transitions = self.get_transitions(start_state_idx, action, self.num_transition_samples)
@@ -206,7 +206,7 @@ class MarkovModel(object):
             # print("num transitions = {}".format(transitions))
             num_transitions += 1
         print("\nroadmap took {}s".format(time.time() - start))
-        
+
     '''
         Function: get_transitions()
         Inputs: int start_state_idx
@@ -232,7 +232,6 @@ class MarkovModel(object):
                 transitions[end_state_idx] += 1.0 / num_samples
             else:
                 transitions[end_state_idx] = 1.0 / num_samples
-        print(transitions)
         return transitions
 
     '''

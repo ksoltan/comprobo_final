@@ -7,6 +7,7 @@ from State import State
 from Action import Action
 import math
 import numpy as np
+import time
 
 '''
     Class: MDP
@@ -19,10 +20,10 @@ import numpy as np
 
 '''
 class MDP(object):
-    def __init__(self, num_positions=1000, num_orientations=10, map=None):
+    def __init__(self, num_positions=1000, num_orientations=10, map=None, grid_debug=False):
         # Build the markov model
         self.markov_model = MarkovModel(num_positions=num_positions, num_orientations=num_orientations, map=map)
-        self.markov_model.make_states()
+        self.markov_model.make_states(grid_debug=grid_debug)
         self.markov_model.build_roadmap()
 
         self.num_states = num_positions * num_orientations
@@ -77,16 +78,18 @@ class MDP(object):
                 self.rewards[state_idx] = low_reward
 
     """
-        Function: make_policy
+        Function: get_policy
         Inputs: State goal_state - new goal state to be set.
 
         Calculates the optimal policy for a given (or saved) goal state by
         iteratively solving a value function (how much payoff each action at
         a state will have in the long run) to update the action to take in each
         state (policy).
+        Returns the policy, num of iterations, time of compuation (modelled after
+        mdptoolbox outputs)
 
     """
-    def make_policy(self, goal_state=None):
+    def get_policy(self, goal_state=None):
         if(goal_state != None):
             self.set_goal_state(goal_state)
 
@@ -94,11 +97,12 @@ class MDP(object):
         self.set_rewards()
 
         # Generate a starting, random policy from all available actions
+        start_time = time.time()
         self.policy = self.get_random_policy()
 
         change = -1
         iteration_count = 0
-        while change != 0:
+        while change != 0 and iteration_count < 30:
             print("iteration {}".format(iteration_count))
             iteration_count += 1
             # Find V of this policy.
@@ -111,8 +115,10 @@ class MDP(object):
                 print("Failed to solve for a value function, trying a new random policy")
                 # Singular matrix solution to V
                 self.policy = self.get_random_policy()
-        print("Converged!")
-        print(self.policy)
+        print("Converged in {} iterations".format(iteration_count))
+        print("MDP solved in {}\n".format(time.time() - start_time))
+        # print(self.policy)
+        return (self.policy, iteration_count, time.time() - start_time)
 
     """
         Function: get_random_policy
@@ -179,7 +185,7 @@ class MDP(object):
 
     """
     def build_p_matrix(self):
-        print("Building P matrix")
+        # print("Building P matrix")
         p_matrix = np.empty([self.num_states, self.num_states])
         for start_state_idx in range(self.num_states):
             for end_state_idx in range(self.num_states):
@@ -198,17 +204,17 @@ class MDP(object):
 
     """
     def build_ps_matrix(self, start_state_idx):
-        print("Building PS matrix")
-        all_actions = Action.get_all_actions()
-        ps_matrix = np.empty([len(all_actions), self.num_states])
-        for action_idx in range(len(all_actions)):
-            for next_state_idx in range(self.num_states):
-                ps_matrix[action_idx][next_state_idx] = self.markov_model.get_probability(start_state_idx, next_state_idx, action_idx)
-        return ps_matrix
+        # print("Building PS matrix")
+        return self.markov_model.roadmap[:, start_state_idx, :]
 
-    def visualize_policy(self):
+    def get_goal_state_idx(self, state):
+        return self.markov_model.get_closest_state_idx(state)
+
+    def visualize_policy(self, policy, goal_state):
+        print("Visualizing policy")
+        goal_state_idx = self.get_goal_state_idx(goal_state)
         # Visualize the goal state as sphere.
-        self.goal_state_pub.publish(self.markov_model.model_states[self.goal_state_idx].get_marker())
+        self.goal_state_pub.publish(self.markov_model.model_states[goal_state_idx].get_marker())
 
         turn_left_array = PoseArray()
         turn_right_array = PoseArray()
@@ -220,7 +226,7 @@ class MDP(object):
 
         all_actions = Action.get_all_actions()
         # Add pose of each state to array wih corresponding policy action
-        for state_idx in range(len(self.policy)):
+        for state_idx in range(len(policy)):
             action = all_actions[policy[state_idx]]
             state_pose = self.markov_model.model_states[state_idx].get_pose()
 
@@ -240,13 +246,14 @@ if __name__ == "__main__":
     print("model.map.info: {}".format(mdp.markov_model.map.info))
     print("Validate is_collision_free - should be False: {}".format(mdp.markov_model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(mdp.markov_model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
-    mdp.markov_model.print_states()
-    mdp.set_goal_state(State(x=1, y=1, theta=math.radians(40)))
+    # mdp.markov_model.print_states()
+    goal_state = State(x=1, y=1, theta=math.radians(40))
+    mdp.set_goal_state(goal_state)
     mdp.set_rewards()
     # print(mdp.rewards)
-    mdp.make_policy()
+    policy = mdp.get_policy()
 
-    # while not rospy.is_shutdown():
-    #     r = rospy.Rate(0.5)
-    #     mdp.visualize_policy()
-    #     r.sleep()
+    while not rospy.is_shutdown():
+        r = rospy.Rate(0.5)
+        mdp.visualize_policy(policy, goal_state)
+        r.sleep()

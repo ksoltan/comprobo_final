@@ -23,8 +23,6 @@ class MDPToolbox(object):
         self.num_states = num_positions * num_orientations # S
         if(grid_debug):
             self.num_states = self.markov_model.num_states
-
-
         # Visualization
         self.turn_right_pub = rospy.Publisher('/right_pose_array', PoseArray, queue_size=10)
         self.turn_left_pub = rospy.Publisher('/left_pose_array', PoseArray, queue_size=10)
@@ -76,7 +74,7 @@ class MDPToolbox(object):
         Returns an array of shape (S,) assigning a reward to being in each state.
 
     '''
-    def get_rewards(self, goal_state_idx, reward_radius):
+    def get_rewards(self, goal_state_idx, reward_radius=0.15):
         high_reward = 10
         low_reward = -1
 
