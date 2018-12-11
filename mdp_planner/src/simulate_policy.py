@@ -2,7 +2,7 @@
 import rospy
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import PoseArray
-from mdptoolbox_test import MDP
+from mdptoolbox_test import MDPToolbox
 from State import State
 from Action import Action
 import numpy as np
@@ -91,7 +91,7 @@ class Robot(object):
         return State(x=end_x, y=end_y, theta=end_theta)
 
 if __name__ == "__main__":
-    mdp = MDP(num_positions=1000, num_orientations=10, grid_debug=False)
+    mdp = MDPToolbox(num_positions=100, num_orientations=10, grid_debug=False)
     print("model.map.info: {}".format(mdp.markov_model.map.info))
     print("Validate is_collision_free - should be False: {}".format(mdp.markov_model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(mdp.markov_model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
