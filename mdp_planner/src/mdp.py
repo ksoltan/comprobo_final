@@ -7,7 +7,6 @@ from State import State
 from Action import Action
 import math
 import numpy as np
-# import mdptoolbox # Must install mdptoolbox following documentation.
 
 '''
     Class: MDP
@@ -15,6 +14,8 @@ import numpy as np
     Builds the optimal policy for a given markov model and a specified goal
     to define what action the robot should take in any given state to reach
     the goal.
+    The policy contains action_idx rather than straight actions, modeled off
+    of the mdptoolbox output.
 
 '''
 class MDP(object):
@@ -121,7 +122,7 @@ class MDP(object):
 
     """
     def get_random_policy(self):
-        return np.random.choice(Action.get_all_actions(), self.num_states, replace=True)
+        return np.random.choice(range(len(Action.get_all_actions())), self.num_states, replace=True)
 
     """
         Function: get_new_policy
@@ -142,8 +143,8 @@ class MDP(object):
             ps_matrix = self.build_ps_matrix(state_idx)
             state_rewards = self.rewards[state_idx] + gamma * ps_matrix.dot(self.value_function)
             idx_action = state_rewards.argmax()
-            total_change += self.policy[state_idx] - all_actions[idx_action]
-            self.policy[state_idx] = all_actions[idx_action]
+            total_change += self.policy[state_idx] - idx_action
+            self.policy[state_idx] = idx_action
         return total_change
 
     """
@@ -163,7 +164,6 @@ class MDP(object):
 
         I = np.identity(self.num_states)
         gamma = 0.999
-        print(p_matrix.sum(axis=1))
         if(np.linalg.det(I - gamma * p_matrix) == 0):
             return False
         self.value_function =  np.linalg.inv(I - gamma * p_matrix).dot(self.rewards)
@@ -183,29 +183,27 @@ class MDP(object):
         p_matrix = np.empty([self.num_states, self.num_states])
         for start_state_idx in range(self.num_states):
             for end_state_idx in range(self.num_states):
-                action = self.policy[start_state_idx]
+                action_idx = self.policy[start_state_idx]
                 p_matrix[start_state_idx][end_state_idx] = \
-                        self.markov_model.get_probability(start_state_idx, end_state_idx, action)
+                        self.markov_model.get_probability(start_state_idx, end_state_idx, action_idx)
         return p_matrix
 
     """
         Function: build_ps_matrix
-        Inputs:
+        Inputs: int start_state_idx
 
         Returns a num_actions x num_states matrix with each element representing
         the probability of transitioning from a start_state to end_state with
         the action specified in each row.
 
     """
-    def build_ps_matrix(self, state_idx):
+    def build_ps_matrix(self, start_state_idx):
         print("Building PS matrix")
         all_actions = Action.get_all_actions()
         ps_matrix = np.empty([len(all_actions), self.num_states])
-        for i in range(len(all_actions)):
-            action = all_actions[i]
-            for j in range(self.num_states):
-                start_state_idx = j
-                ps_matrix[i][j] = self.markov_model.get_probability(start_state_idx, state_idx, action)
+        for action_idx in range(len(all_actions)):
+            for next_state_idx in range(self.num_states):
+                ps_matrix[action_idx][next_state_idx] = self.markov_model.get_probability(start_state_idx, next_state_idx, action_idx)
         return ps_matrix
 
     def visualize_policy(self):
@@ -220,9 +218,10 @@ class MDP(object):
         turn_right_array.header.frame_id = "map"
         forward_array.header.frame_id = "map"
 
+        all_actions = Action.get_all_actions()
         # Add pose of each state to array wih corresponding policy action
         for state_idx in range(len(self.policy)):
-            action = self.policy[state_idx]
+            action = all_actions[policy[state_idx]]
             state_pose = self.markov_model.model_states[state_idx].get_pose()
 
             if(action == Action.LEFT):
@@ -237,17 +236,17 @@ class MDP(object):
         self.forward_pub.publish(forward_array)
 
 if __name__ == "__main__":
-    mdp = MDP(num_positions=100, num_orientations=1)
+    mdp = MDP(num_positions=100, num_orientations=10)
     print("model.map.info: {}".format(mdp.markov_model.map.info))
     print("Validate is_collision_free - should be False: {}".format(mdp.markov_model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
     print("Validate is_collision_free - should be True: {}".format(mdp.markov_model.is_collision_free((1.2823, 1.054))))  # free in ac109_1
     mdp.markov_model.print_states()
     mdp.set_goal_state(State(x=1, y=1, theta=math.radians(40)))
     mdp.set_rewards()
-    print(mdp.rewards)
+    # print(mdp.rewards)
     mdp.make_policy()
 
-    while not rospy.is_shutdown():
-        r = rospy.Rate(0.5)
-        mdp.visualize_policy()
-        r.sleep()
+    # while not rospy.is_shutdown():
+    #     r = rospy.Rate(0.5)
+    #     mdp.visualize_policy()
+    #     r.sleep()
