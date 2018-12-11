@@ -82,7 +82,7 @@ class MarkovModel(object):
     def make_states(self, grid_debug=False):
         self.model_states = []
         self.positions = []
-        # np.random.seed(0)
+        np.random.seed(0) # Definitely pick the other thing when merging
         self.position_to_states = OrderedDict()  # {(x, y): [(angle_1, state_idx_1), (angle_2, state_idx_2), ...]} All with the same position.
 
         count = 0
@@ -535,7 +535,7 @@ class MarkovModel(object):
         self.marker_pub.publish(marker_arr)
 
 if __name__ == "__main__":
-    model = MarkovModel(num_positions=100, num_orientations=10, )
+    model = MarkovModel(num_positions=100, num_orientations=10)
     print("model.map.info: {}".format(model.map.info))
     model.make_states(grid_debug=True)
     print("Validate is_collision_free - should be False: {}".format(model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
