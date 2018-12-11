@@ -187,13 +187,10 @@ class MDP(object):
 
     """
     def build_p_matrix(self):
-        # print("Building P matrix")
         p_matrix = np.empty([self.num_states, self.num_states])
         for start_state_idx in xrange(self.num_states):
-            for end_state_idx in xrange(self.num_states):
-                action_idx = self.policy[start_state_idx]
-                p_matrix[start_state_idx][end_state_idx] = \
-                        self.markov_model.get_probability(start_state_idx, end_state_idx, action_idx)
+            action_idx = self.policy[start_state_idx]
+            p_matrix[start_state_idx] = self.markov_model.roadmap[action_idx, start_state_idx, :]
         return p_matrix
 
     """
@@ -229,6 +226,9 @@ class MDP(object):
         all_actions = Action.get_all_actions()
         # Add pose of each state to array wih corresponding policy action
         for state_idx in xrange(len(policy)):
+            # print(len(policy))
+            # print(policy[state_idx].shape)
+            # print(type(policy[state_idx]))
             action = all_actions[policy[state_idx]]
             state_pose = self.markov_model.model_states[state_idx].get_pose()
 
@@ -253,9 +253,9 @@ if __name__ == "__main__":
     mdp.set_goal_state(goal_state)
     mdp.set_rewards()
     # print(mdp.rewards)
-    policy = mdp.get_policy()
-
-    while not rospy.is_shutdown():
-        r = rospy.Rate(0.5)
-        mdp.visualize_policy(policy, goal_state)
-        r.sleep()
+    policy, iters, compute_time = mdp.get_policy()
+    #
+    # while not rospy.is_shutdown():
+    #     r = rospy.Rate(0.5)
+    #     mdp.visualize_policy(policy, goal_state)
+    #     r.sleep()
