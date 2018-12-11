@@ -79,10 +79,11 @@ class MarkovModel(object):
         Overwrites the current set of self.model_states.
 
     '''
-    def make_states(self, grid_debug=False):
+    def make_states(self, grid_debug=False, seed=False):
         self.model_states = []
         self.positions = []
-        # np.random.seed(0)
+        if seed:
+            np.random.seed(0)
         self.position_to_states = OrderedDict()  # {(x, y): [(angle_1, state_idx_1), (angle_2, state_idx_2), ...]} All with the same position.
 
         count = 0
@@ -104,10 +105,10 @@ class MarkovModel(object):
                             self.model_states.append(State(x=x, y=y, theta=angle))
                             poses.append([x, y, angle])
                             bisect.insort(orientation_states, (angle, count))
-                            print("Num states = {}".format(count))
                             count += 1
                         self.position_to_states[sampled_position] = orientation_states
             # Re-initialize lists with different state numbers!
+            print("Num states = {}".format(count))
             self.num_states = count
             self.roadmap = np.zeros([len(Action.get_all_actions()), self.num_states, self.num_states])
             print(poses)
