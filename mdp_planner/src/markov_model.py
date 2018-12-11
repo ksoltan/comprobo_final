@@ -4,8 +4,12 @@ from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import PoseArray
 
 import numpy as np
-from sklearn.neighbors import KDTree
+from sklearn.neighbors import KDTree, BallTree
+from collections import OrderedDict
 import math
+import bisect
+import time
+import sys
 
 from Action import Action
 from State import State
@@ -16,6 +20,18 @@ from State import State
     between states for any given action.
 
 '''
+
+def draw_progress_bar(percent, bar_length=30):
+    """
+    0 < percent < 100
+    Draws a a static progress bar.
+    """
+    scale = bar_length / 100.0
+    completed = percent * scale
+    remaining = (100 - percent) * scale
+    sys.stdout.write("\r[" + "=" * int(round(completed)) + ' ' * int(round(remaining)) + ']   {:4.2f}% '.format(percent))
+    sys.stdout.flush()
+
 class MarkovModel(object):
     def __init__(self, num_positions=1000, num_orientations=10, map=None):
         rospy.init_node("markov_model")
@@ -24,7 +40,7 @@ class MarkovModel(object):
         self.num_orientations = num_orientations # number of orientations of one state position to generate
         self.num_states = self.num_positions * self.num_orientations
 
-        self.num_transition_samples = 100 # how many transitions to simulate when building roadmap
+        self.num_transition_samples = 20#100 # how many transitions to simulate when building roadmap
 
         self.model_states = []  # All possible positions and orientations
         self.kd_tree = None
@@ -65,24 +81,32 @@ class MarkovModel(object):
     '''
     def make_states(self, grid_debug=False):
         self.model_states = []
-        poses = []
+        self.positions = []
         # np.random.seed(0)
+        self.position_to_states = OrderedDict()  # {(x, y): [(angle_1, state_idx_1), (angle_2, state_idx_2), ...]} All with the same position.
+
         count = 0
         map_x_range = (self.map.info.origin.position.x, self.map.info.origin.position.x + self.map.info.width * self.map.info.resolution)
         map_y_range = (self.map.info.origin.position.y, self.map.info.origin.position.y + self.map.info.height * self.map.info.resolution)
 
         if(grid_debug):
+            poses = []
             num_x_pos = int(math.sqrt(self.num_positions * (map_x_range[1] - map_x_range[0]) / (map_y_range[1] - map_y_range[0])))
             num_y_pos = int(self.num_positions / num_x_pos)
             print("{} x {}".format(num_x_pos, num_y_pos))
             for x in np.linspace(map_x_range[0], map_x_range[1], num_x_pos + 10):
                 for y in np.linspace(map_y_range[0], map_y_range[1], num_y_pos + 10):
-                    for angle in np.linspace(0, 2 * math.pi, self.num_orientations, endpoint=False):
-                        if self.is_collision_free((x, y)):
+                    sampled_position = (x, y)
+                    if self.is_collision_free(sampled_position):
+                        self.positions.append(sampled_position)
+                        orientation_states = []
+                        for angle in np.linspace(0, 2 * math.pi, self.num_orientations, endpoint=False):
                             self.model_states.append(State(x=x, y=y, theta=angle))
                             poses.append([x, y, angle])
+                            bisect.insort(orientation_states, (angle, count))
                             print("Num states = {}".format(count))
                             count += 1
+                        self.position_to_states[sampled_position] = orientation_states
             # Re-initialize lists with different state numbers!
             self.num_states = count
             self.roadmap = np.zeros([len(Action.get_all_actions()), self.num_states, self.num_states])
@@ -93,18 +117,27 @@ class MarkovModel(object):
 
                 # Add state only if it does not generate a collision.
                 if self.is_collision_free(sampled_position):
+                    orientation_states = []
+
                     # Add multiple orientations
                     for i in range(self.num_orientations):
                         angle = np.random.uniform(0, 2 * math.pi)
                         self.model_states.append(State(x=sampled_position[0],
-                                                       y=sampled_position[1],
-                                                       theta=angle))
-                        print("Trying: x: {}, y: {}, theta: {}".format(sampled_position[0], sampled_position[1], math.degrees(angle)))
-                        poses.append([sampled_position[0], sampled_position[1], angle])
-                        print("Num states = {}".format(count))
+                                                    y=sampled_position[1],
+                                                    theta=angle))
+
+                        bisect.insort(orientation_states, (angle, count)) # do sorted insert based on angle
                         count += 1
 
-        self.kd_tree = KDTree(poses, metric='euclidean')
+                    self.position_to_states[sampled_position] = orientation_states
+                    self.positions.append([sampled_position[0], sampled_position[1]])
+
+        print("Num states = {}".format(len(self.model_states)))
+        print(np.array(self.positions).shape)
+        print("Building KD Tree...")
+        start = time.time()
+        self.kd_tree = KDTree(self.positions, metric='euclidean')
+        print("It took {}s\n".format(time.time()-start))
         # Note: Is this better than doing  a list comprehension on self.model_states memory-wise?
 
     '''
@@ -153,17 +186,27 @@ class MarkovModel(object):
     '''
     def build_roadmap(self, num_samples=100):
         print("Building roadmap.")
+        start = time.time()
         num_transitions = 0
-        for action_idx in range(len(Action.get_all_actions())):
+        num_actions = len(Action.get_all_actions())
+
+        for action_idx in range(num_actions):
             for start_state_idx in range(len(self.model_states)):
+
+                if start_state_idx % 100 == 0:
+                    draw_progress_bar(100.0 * (start_state_idx + (len(self.model_states) * action_idx)) / (len(self.model_states) * num_actions))
+
                 action = Action.get_all_actions()[action_idx]
                 transitions = self.get_transitions(start_state_idx, action, self.num_transition_samples)
                 # print(zip(end_state_idxs, probabilities))
                 # [start_state_idx, end_state_idx, action, probability]
+
                 for end_state_idx, probability in transitions.iteritems():
                     self.roadmap[action_idx][start_state_idx][end_state_idx] = probability
+
             # print("num transitions = {}".format(transitions))
             num_transitions += 1
+        print("\nroadmap took {}s".format(time.time() - start))
 
     '''
         Function: get_transitions()
@@ -179,11 +222,11 @@ class MarkovModel(object):
     '''
     def get_transitions(self, start_state_idx, action, num_samples=100):
         # TODO: include a dedicated Obstacle state?
-        # TODO: penalize obstacle in path between start and end states
         transitions = {}
+
         for sample_num in range(0, num_samples):
-            sample_state = self.generate_sample_transition(start_state_idx, action)
-            end_state_idx = self.get_closest_state_idx(sample_state, start_state_idx)
+            target_state = self.generate_sample_transition(start_state_idx, action)
+            end_state_idx = self.get_closest_state_idx(target_state, start_state_idx=start_state_idx)
 
             # Update the probability, or add new state
             if end_state_idx in transitions:
@@ -195,23 +238,46 @@ class MarkovModel(object):
 
     '''
         Function: get_closest_state_idx
-        Inputs: State sample_state
-                int start_state_idx - Optional
+        Inputs: State target_state
 
         Return the index of state in self.model_states with
-        minimum distance to sample_state.
+        minimum distance to target_state.
+
+        Uses a KD Tree to find states with near position, then linearly
+        searches for the best combination of position and angle.
 
     '''
-    def get_closest_state_idx(self, sample_state, start_state_idx=-1):
-        distance, closest_state_idx = self.kd_tree.query(np.array([sample_state.get_pose_xytheta()]), k=2)
-        if(closest_state_idx[0][0] == start_state_idx):
-            if(start_state_idx == 4):
-                print("Chose state {}. Diff in Distance =  {}".format(closest_state_idx[0][1], distance[0][1] - distance[0][0]))
-            return np.asscalar(closest_state_idx[0][1])
-            # res_state = self.model_states[np.asscalar(closest_state_idx[0])]
-        # print("Diff x: {} y: {} theta: {}".format(sample_state.x - res_state.x, sample_state.y - res_state.y, sample_state.theta - res_state.theta))
+    def get_closest_state_idx(self, target_state, start_state_idx=None):
+        num_close_state = 5
+        distances, closest_position_indeces = self.kd_tree.query(np.array([target_state.get_pose_xytheta()[:2]]), k=num_close_state)
 
-        return np.asscalar(closest_state_idx[0][0])
+        return self.get_closest_orientation_idx(target_state, closest_position_indeces[0], source_state_idx=start_state_idx)
+
+    def get_closest_orientation_idx(self, target_state, closest_position_indeces, source_state_idx=None):
+        ignore_source_state = True  # TODO: Make class variable?
+
+        position = self.positions[closest_position_indeces[0]]
+        orientations = self.position_to_states[tuple(position)]
+
+        best_state_idx = None
+        distance = float('inf')
+
+        for position_idx in closest_position_indeces:
+            position = self.positions[position_idx]
+            orientations = self.position_to_states[tuple(position)]
+            new_state_idx = self.nearest_angle_state_idx(orientations, target_state.theta)
+            new_distance = target_state.distance_to(self.model_states[new_state_idx])
+
+            if new_distance < distance and \
+                    (ignore_source_state and new_state_idx != source_state_idx):
+                distance = new_distance
+                best_state_idx = new_state_idx
+
+        if best_state_idx is None:
+            print("All checked state have distance > inf, returning starting state. This really shouldn't happen.")
+            return source_state_idx
+
+        return best_state_idx
 
     '''
         Function: generate_sample_transition
@@ -258,6 +324,23 @@ class MarkovModel(object):
     def get_probability(self, start_state_idx, end_state_idx, action):
         action_idx = Action.get_all_actions().index(action)
         return self.roadmap[action_idx][start_state_idx][end_state_idx]
+
+    @staticmethod
+    def nearest_angle_state_idx(sorted_angle_list, target_angle):
+        """
+        Find the nearest angle with binary search on sorted list.
+        There be python demons here, but it's been thoroughly tested.
+        sorted_angle_list = [(angle, state_idx), ...]
+        0 < target_angle < 2 * pi
+
+        returns state_idx
+        """
+        # Put in tuple since the list has tuples. Second item doesn't matter.
+        bisect_idx = bisect.bisect(sorted_angle_list, (target_angle, None)) % len(sorted_angle_list)
+        # Compare item at bisect_idx and bisect_idx - 1. If former is larger, then choose it, otherwise subtract 1. Wraps around. #pythonbullshit
+        best_idx = bisect_idx - (State.angle_diff(sorted_angle_list[bisect_idx][0], target_angle) > State.angle_diff(sorted_angle_list[bisect_idx - 1][0], target_angle))
+        return sorted_angle_list[best_idx][1] #, best_idx
+
 
     def is_collision_free_path(self, start_state_idx, end_state_idx):
         for angle in np.linspace(0, 2 * math.pi, num_circle_points):
@@ -455,7 +538,7 @@ class MarkovModel(object):
         self.marker_pub.publish(marker_arr)
 
 if __name__ == "__main__":
-    model = MarkovModel(num_positions=20, num_orientations=5)
+    model = MarkovModel(num_positions=100, num_orientations=10, )
     print("model.map.info: {}".format(model.map.info))
     model.make_states(grid_debug=True)
     print("Validate is_collision_free - should be False: {}".format(model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
