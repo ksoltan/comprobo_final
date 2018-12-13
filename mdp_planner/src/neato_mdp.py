@@ -67,41 +67,58 @@ class NeatoMDP(object):
     #     new_state = State(x=self.current_pose.linear.x, y=self.current_pose.linear.y, theta=self.current_pose.angular.z)
     #     self.state_idx = self.mdp.markov_model.get_closest_state_idx(new_state, start_state_idx=self.state_idx)
 
-    def execute_action(self, policy):
-        # Identify which state you are in
-        #TODO: Interface with SLAM algorithm to get predicted position
+    # def execute_action(self, policy):
+    #     # Identify which state you are in
+    #     #TODO: Interface with SLAM algorithm to get predicted position
+    #
+    #     action = Action.get_all_actions()[policy[self.state_idx]]
+    #     print("Taking action: ", Action.to_str(action))
+    #     new_state = self.move(action)
+    #     # print(new_state)
+    #
+    #     # Update state idx.
+    #     self.state_idx = self.mdp.markov_model.get_closest_state_idx(new_state,
+    #                                             start_state_idx=self.state_idx)
 
-        action = Action.get_all_actions()[policy[self.state_idx]]
-        new_state = self.move(action)
-        # print(new_state)
+    def move(self, policy):
+        # Approximate current position
+        curr_odom_x, curr_odom_y, curr_odom_theta = self.tf_helper.convert_pose_to_xy_and_theta(self.curr_odom_pose)
+        if(curr_odom_theta < 0):
+            curr_odom_theta = curr_odom_theta % (2 * math.pi)
+        curr_state = State(x=curr_odom_x, y=curr_odom_y, theta=curr_odom_theta)
+        state_idx = self.mdp.markov_model.get_closest_state_idx(curr_state)
 
-        # Update state idx.
-        self.state_idx = self.mdp.markov_model.get_closest_state_idx(new_state,
-                                                start_state_idx=self.state_idx)
-
-    def move(self, action):
+        action = Action.get_all_actions()[policy[state_idx]]
         linear, angular = Action.get_pose_change(action)
+        print("linear: {}, angular: {}".format(linear, angular))
 
         twist_msg = Twist()
-        twist_msg.linear.x = linear
-        twist_msg.angular.z = angular
+        twist_msg.linear.x = 0.2 * linear
+        twist_msg.angular.z = 0.5 * angular
         # publish this twist message
         self.cmd_vel_publisher.publish(twist_msg)
 
-        start_odom = self.curr_odom_pose
-        linear_change, angular_change = self.get_change_in_motion(start_odom)
-        r = rospy.Rate(0.5)
-        while(linear_change < linear and angular_change < angular):
-            r.sleep() # Wait a little.
-            # Check change again.
-            linear_change, angular_change = self.get_change_in_motion(start_odom)
-        new_odom_x, new_odom_y, new_odom_theta = self.tf_helper.convert_pose_to_xy_and_theta(self.curr_odom_pose)
-        return State(x=new_odom_x, y=new_odom_y, theta=new_odom_theta)
+        # start_odom = self.curr_odom_pose
+        # linear_change, angular_change = self.get_change_in_motion(start_odom)
+        # r = rospy.Rate(0.5)
+        # while(linear_change < linear and angular_change < angular):
+        #     r.sleep() # Wait a little.
+        #     # Check change again.
+        #     linear_change, angular_change = self.get_change_in_motion(start_odom)
+        # print("New state is: ")
+        # new_state = State(x=new_odom_x, y=new_odom_y, theta=new_odom_theta)
+        # print(new_state)
+        # return new_state
 
-    def get_change_in_motion(self, start_odom):
-        start_odom_x, start_odom_y, start_odom_theta = self.tf_helper.convert_pose_to_xy_and_theta(start_odom)
-        new_odom_x, new_odom_y, new_odom_theta = self.tf_helper.convert_pose_to_xy_and_theta(self.curr_odom_pose)
-        return (new_odom_x - start_odom_x, self.tf_helper.angle_diff(new_odom_theta, start_odom_theta))
+    def stop(self):
+        twist_msg = Twist()
+        self.cmd_vel_publisher.publish(twist_msg)
+
+    # def get_change_in_motion(self, start_odom):
+    #     start_odom_x, start_odom_y, start_odom_theta = self.tf_helper.convert_pose_to_xy_and_theta(start_odom)
+    #     new_odom_x, new_odom_y, new_odom_theta = self.tf_helper.convert_pose_to_xy_and_theta(self.curr_odom_pose)
+    #     print("New odom: {}, {}, {}".format(new_odom_x, new_odom_y, new_odom_theta))
+    #     return (new_odom_x - start_odom_x, self.tf_helper.angle_diff(new_odom_theta, start_odom_theta))
 
     def run(self):
         # TODO: Parametrize goal state, and be able to dynamically update it?
@@ -119,6 +136,7 @@ class NeatoMDP(object):
                 # Keep checking whether you are in a different state and should
                 # execute a different action.
                 if self.state_idx in goal_idxs:
+                    self.stop()
                     print("Finished executing policy. Would you like to go again?")
                     if(raw_input() in ['n', 'NO', 'N', 'no']):
                         print("Exiting")
@@ -131,7 +149,8 @@ class NeatoMDP(object):
                         policy, iter, time = self.mdp.get_policy(goal_state)
                         goal_idxs = self.set_goal_idxs()
                 else:
-                    self.execute_action(policy)
+                    self.move(policy)
+                    # self.execute_action(policy)
             r.sleep()
 
 if __name__ == "__main__":

@@ -34,8 +34,6 @@ def draw_progress_bar(percent, bar_length=30):
 
 class MarkovModel(object):
     def __init__(self, num_positions=1000, num_orientations=10, map=None):
-        rospy.init_node("markov_model")
-
         self.num_positions = num_positions
         self.num_orientations = num_orientations # number of orientations of one state position to generate
         self.num_states = self.num_positions * self.num_orientations
@@ -53,12 +51,13 @@ class MarkovModel(object):
         # Load map
         # Run: `rosrun map_server map_server ac109_1.yaml` <-indicate yaml file of the map
         if(map == None):
+            rospy.init_node("markov_model")
             rospy.wait_for_service("static_map")
             static_map = rospy.ServiceProxy("static_map", GetMap)
             self.map = static_map().map
         else:
             self.map = map
-
+        
         # Visualization
         self.state_pose_pub = rospy.Publisher('/state_pose_array', PoseArray, queue_size=10)
         self.marker_pub = rospy.Publisher('/marker_array', MarkerArray, queue_size=10)
@@ -69,6 +68,7 @@ class MarkovModel(object):
         self.turn_right_pub = rospy.Publisher('/right_pose_array', PoseArray, queue_size=10)
         self.turn_left_pub = rospy.Publisher('/left_pose_array', PoseArray, queue_size=10)
         self.forward_pub = rospy.Publisher('/forward_pose_array', PoseArray, queue_size=10)
+
 
     '''
         Function: make_states
@@ -341,6 +341,26 @@ class MarkovModel(object):
 
 
     def is_collision_free_path(self, start_state_idx, end_state_idx):
+        for angle in np.linspace(0, 2 * math.pi, num_circle_points):
+            circle_point = (robot_radius * math.cos(angle) + point[0], robot_radius * math.sin(angle) + point[1])
+            x_coord = int((circle_point[0] - self.map.info.origin.position.x) / self.map.info.resolution)
+            y_coord = int((circle_point[1] - self.map.info.origin.position.y) / self.map.info.resolution)
+
+            # check if we are in bounds
+            # Used in robot_localization/robot_localizer/scripts/occupancy_field.py
+            if x_coord > self.map.info.width or x_coord < 0:
+                return False
+            if y_coord > self.map.info.height or y_coord < 0:
+                return False
+
+            ind = x_coord + y_coord * self.map.info.width
+
+            if ind >= self.map.info.width*self.map.info.height or ind < 0:
+                return False
+
+            is_occupied = self.map.data[ind]
+            if is_occupied:
+                return False
         # TODO: probably fine for small enough motion, but should implement a raytrace type thing.
         return True
 
@@ -516,7 +536,7 @@ class MarkovModel(object):
         self.marker_pub.publish(marker_arr)
 
 if __name__ == "__main__":
-    model = MarkovModel(num_positions=100, num_orientations=10)
+    model = MarkovModel(num_positions=100, num_orientations=10, )
     print("model.map.info: {}".format(model.map.info))
     model.make_states(grid_debug=True)
     print("Validate is_collision_free - should be False: {}".format(model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1
