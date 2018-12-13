@@ -57,7 +57,7 @@ class MarkovModel(object):
             self.map = static_map().map
         else:
             self.map = map
-        
+
         # Visualization
         self.state_pose_pub = rospy.Publisher('/state_pose_array', PoseArray, queue_size=10)
         self.marker_pub = rospy.Publisher('/marker_array', MarkerArray, queue_size=10)
@@ -380,7 +380,7 @@ class MarkovModel(object):
                 int filter_value - start_state_idx, end_state_idx, or action_idx depending on Filter
 
         More granular visualization of the transitions that can happen from state to state.
-        Prompts for input. Enter n/no if want to exit. Otherwaise, press an key, and then enter an integer
+        Prompts for input. Enter n/no if want to exit. Otherwise, press a key, and then enter an integer
         for the state idx to visualize. No checks on whether it is an allowable idx are performed.
 
     '''
@@ -536,7 +536,7 @@ class MarkovModel(object):
         self.marker_pub.publish(marker_arr)
 
 if __name__ == "__main__":
-    model = MarkovModel(num_positions=100, num_orientations=10, )
+    model = MarkovModel(num_positions=100, num_orientations=1)
     print("model.map.info: {}".format(model.map.info))
     model.make_states(grid_debug=True)
     print("Validate is_collision_free - should be False: {}".format(model.is_collision_free((0.97926, 1.4726))))  # Hit wall in ac109_1

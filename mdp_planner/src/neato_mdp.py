@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 import rospy
-from geometry_msgs.msg import Twist, Pose, PoseStamped, PoseWithCovarianceStamped
+from geometry_msgs.msg import Twist, Pose, PoseArray, PoseStamped, PoseWithCovarianceStamped
+from visualization_msgs.msg import Marker
 from nav_msgs.srv import GetMap
 from nav_msgs.msg import Odometry
 from mdp import MDP
@@ -31,6 +32,10 @@ class NeatoMDP(object):
         # Velocity publisher
         self.cmd_vel_publisher = rospy.Publisher("/cmd_vel", Twist, queue_size=10, latch=True)
         self.odom_subscriber = rospy.Subscriber('/odom', Odometry, self.set_odom)
+
+        # Visualize robot
+        self.robot_state_pub = rospy.Publisher('/robot_state_marker', Marker, queue_size=10)
+        self.robot_state_pose_pub = rospy.Publisher('/robot_state_pose', PoseArray, queue_size=10)
         # # pose_listener responds to selection of a new approximate robot location (for instance using rviz)
         #
         # self.base_link_pose = PoseStamped()
@@ -86,8 +91,9 @@ class NeatoMDP(object):
         if(curr_odom_theta < 0):
             curr_odom_theta = curr_odom_theta % (2 * math.pi)
         curr_state = State(x=curr_odom_x, y=curr_odom_y, theta=curr_odom_theta)
+        self.publish_robot_odom(curr_state)
         state_idx = self.mdp.markov_model.get_closest_state_idx(curr_state)
-
+        print("My state idx = {}".format(state_idx))
         action = Action.get_all_actions()[policy[state_idx]]
         linear, angular = Action.get_pose_change(action)
         print("linear: {}, angular: {}".format(linear, angular))
@@ -114,6 +120,14 @@ class NeatoMDP(object):
         twist_msg = Twist()
         self.cmd_vel_publisher.publish(twist_msg)
 
+    def publish_robot_odom(self, curr_state):
+        self.robot_state_pub.publish(curr_state.get_marker(r=0.0, g=0.0, b=1.0, scale=0.15))
+
+        robot_pose = PoseArray()
+        robot_pose.header.frame_id = "map"
+        robot_pose.poses = [curr_state.get_pose()]
+        self.robot_state_pose_pub.publish(robot_pose)
+
     # def get_change_in_motion(self, start_odom):
     #     start_odom_x, start_odom_y, start_odom_theta = self.tf_helper.convert_pose_to_xy_and_theta(start_odom)
     #     new_odom_x, new_odom_y, new_odom_theta = self.tf_helper.convert_pose_to_xy_and_theta(self.curr_odom_pose)
@@ -126,6 +140,8 @@ class NeatoMDP(object):
         goal_state = State(x=1, y=1, theta=math.radians(40))
         # Solve the MDP
         policy, iter, time = self.mdp.get_policy(goal_state)
+        self.mdp.visualize_policy(policy, goal_state)
+
         goal_idxs = self.set_goal_idxs()
         print(goal_idxs)
         r = rospy.Rate(0.5)
