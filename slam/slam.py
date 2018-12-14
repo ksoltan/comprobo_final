@@ -114,7 +114,6 @@ class Map():
 			for y in range(len(self.map_[0])):
 				reading = self.map_[x][y]
 				pixels[x, y] = ((0, 0, 0) if (reading == WALL) else ((255, 255, 255) if (reading == EMPTY) else (100, 100, 100)))
-				if reading == WALL:
 
 		display.save('small.png')
 		display.show()
