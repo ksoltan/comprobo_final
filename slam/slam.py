@@ -61,6 +61,7 @@ class Map():
 		self.map_ = map_
 		self.origin = (int(round(len(self.map_)/2)), int(round(len(self.map_[0])/2)))
 		self.pose = pose #[x, y, theta], is always relative.  It's the measure of distance from origin.
+		self.picture_number = 0
 
 	def stitch(self, scan_map):
 		#Take current map, reference to origin.  Compare to scan, reference to pose.
@@ -105,18 +106,27 @@ class Map():
 		return (lower_x, lower_y, upper_x, upper_y)
 		
 
-	def show_map(self):
+	def save_map(self, pose):
 		# Create a 1024x1024x3 array of 8 bit unsigned integers
-		display = Image.new('RGB', (len(self.map_), len(self.map_[0])))
+		scale = 1
+		robot_size = 5
+		display = Image.new('RGB', (len(self.map_)*scale, len(self.map_[0])*scale))
 		pixels = display.load()
 
 		for x in range(len(self.map_)):
 			for y in range(len(self.map_[0])):
 				reading = self.map_[x][y]
-				pixels[x, y] = ((0, 0, 0) if (reading == WALL) else ((255, 255, 255) if (reading == EMPTY) else (100, 100, 100)))
+				for x1 in range(scale):
+					for y1 in range(scale):
+						pixels[x*scale + x1, y*scale + y1] = ((0, 0, 0) if (reading == WALL) else ((255, 255, 255) if (reading == EMPTY) else (100, 100, 100)))
 
-		display.save('small.png')
-		display.show()
+				for x1 in range(robot_size*scale):
+					for y1 in range(robot_size*scale):
+						pixels[(self.origin[0] + (pose[0] - self.pose[0])/self.resolution)*scale + x1, (self.origin[1] + (pose[1] - self.pose[1])/self.resolution)*scale + y1] = (255, 0, 0)
+
+		display.save('small' + str(self.picture_number) + '.png')
+		#display.show()
+		self.picture_number += 1
 
 class Slammer():
 	def __init__(self):
@@ -128,7 +138,7 @@ class Slammer():
 		self.scan = []
 		self.get_new_scan = True
 		self.max_scan = 3
-		self.resolution = 0.01
+		self.resolution = 0.05
 		self.pose = (0, 0, 0)
 		self.map_ = None
 		self.display = None
@@ -145,9 +155,9 @@ class Slammer():
 				self.map_ = map_from_scan(self.scan, self.pose, self.resolution, self.max_scan)
 			else:
 				self.map_.stitch(map_from_scan(self.scan, self.pose, self.resolution, self.max_scan))
-				closeImages()
+				#closeImages()
 			
-			self.map_.show_map()
+			self.map_.save_map(self.pose)
 
 	def run(self):
 		go = 0
