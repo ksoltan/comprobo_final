@@ -21,6 +21,10 @@ This file uses the MDP class to control a neato. Nothing particularly interestin
 
 ## SLAM Overview
 
+![](https://github.com/ksoltan/comprobo_final/blob/master/Scans/Poster-%20Mapping.png)
+
+Our implementation of this algorithm can be found in two files.
+
 ### gmapping.py
 Containing our original MVP, we've built everything else upon this file. Our initial plan behind this project was to first implement GMapping as our MVP, then successively remove and replace the pre-built packages with our own implementations. In this way, we would always have a viable project, and could learn about various parts of the algorithm in great detail. See https://github.com/ksoltan/comprobo_final/wiki/Blog-Post-%231-(SLAM) for more information.
 
