@@ -13,6 +13,20 @@ import sys
 
 from Action import Action
 from State import State
+
+'''
+    Function: draw_progress_bar
+
+    0 < percent < 100
+    Draws a a static progress bar with carriage return.
+'''
+def draw_progress_bar(percent, bar_length=30):
+    scale = bar_length / 100.0
+    completed = percent * scale
+    remaining = (100 - percent) * scale
+    sys.stdout.write("\r[" + "=" * int(round(completed)) + ' ' * int(round(remaining)) + ']   {:4.2f}% '.format(percent))
+    sys.stdout.flush()
+
 '''
     Class: MarkovModel
 
@@ -20,18 +34,6 @@ from State import State
     between states for any given action.
 
 '''
-
-def draw_progress_bar(percent, bar_length=30):
-    """
-    0 < percent < 100
-    Draws a a static progress bar.
-    """
-    scale = bar_length / 100.0
-    completed = percent * scale
-    remaining = (100 - percent) * scale
-    sys.stdout.write("\r[" + "=" * int(round(completed)) + ' ' * int(round(remaining)) + ']   {:4.2f}% '.format(percent))
-    sys.stdout.flush()
-
 class MarkovModel(object):
     def __init__(self, num_positions=1000, num_orientations=10, map=None):
         self.num_positions = num_positions
@@ -237,7 +239,7 @@ class MarkovModel(object):
 
     '''
         Function: get_closest_state_idx
-        Inputs: State target_state
+        Inputs: State target_state, int start_state_idx
 
         Return the index of state in self.model_states with
         minimum distance to target_state.
@@ -246,12 +248,22 @@ class MarkovModel(object):
         searches for the best combination of position and angle.
 
     '''
-    def get_closest_state_idx(self, target_state, start_state_idx=None):
-        num_close_state = 5
+    def get_closest_state_idx(self, target_state, start_state_idx=None, num_close_state=5):
+        # This search returns nearest positions.
         distances, closest_position_indeces = self.kd_tree.query(np.array([target_state.get_pose_xytheta()[:2]]), k=num_close_state)
 
+        # Of those states find the one with the best position/angle combination.
         return self.get_closest_orientation_idx(target_state, closest_position_indeces[0], source_state_idx=start_state_idx)
 
+    '''
+        Function: get_closest_orientation
+        Inputs: State target_state, int[] closest_position_indeces,
+                int source_state_idx
+
+        Using the few nearest state positions, returns the best state
+        considering position and orientation. 
+        Uses a binary search on the states with different orientation.
+    '''
     def get_closest_orientation_idx(self, target_state, closest_position_indeces, source_state_idx=None):
         ignore_source_state = True  # TODO: Make class variable?
 
@@ -273,7 +285,7 @@ class MarkovModel(object):
                 best_state_idx = new_state_idx
 
         if best_state_idx is None:
-            print("All checked state have distance > inf, returning starting state. This really shouldn't happen.")
+            print("All checked state have distance > inf, returning starting state. This *really* shouldn't happen.")
             return source_state_idx
 
         return best_state_idx
@@ -323,22 +335,30 @@ class MarkovModel(object):
     def get_probability(self, start_state_idx, end_state_idx, action_idx):
         return self.roadmap[action_idx][start_state_idx][end_state_idx]
 
-    @staticmethod
-    def nearest_angle_state_idx(sorted_angle_list, target_angle):
-        """
+
+    '''
+        Function: nearest_angle_state_idx
+        Inputs: float[] sorted_angle_list, float target_angle
+
         Find the nearest angle with binary search on sorted list.
         There be python demons here, but it's been thoroughly tested.
         sorted_angle_list = [(angle, state_idx), ...]
         0 < target_angle < 2 * pi
 
         returns state_idx
-        """
+    '''
+    @staticmethod
+    def nearest_angle_state_idx(sorted_angle_list, target_angle):
         # Put in tuple since the list has tuples. Second item doesn't matter.
-        bisect_idx = bisect.bisect(sorted_angle_list, (target_angle, None)) % len(sorted_angle_list)
-        # Compare item at bisect_idx and bisect_idx - 1. If former is larger, then choose it, otherwise subtract 1. Wraps around. #pythonbullshit
-        best_idx = bisect_idx - (State.angle_diff(sorted_angle_list[bisect_idx][0], target_angle) > State.angle_diff(sorted_angle_list[bisect_idx - 1][0], target_angle))
-        return sorted_angle_list[best_idx][1] #, best_idx
+        # bisect_idx is the index at which the item should be added to maintain order.
+        bisect_idx = bisect.bisect(sorted_angle_list, (target_angle, None)) % len(sorted_angle_list) # modulo allows angle wraparound
 
+        # Pick which of bisct_idx and bisect_idx-1 is closest to target.
+        idx_adjustment = (State.angle_diff(sorted_angle_list[bisect_idx][0], target_angle) > State.angle_diff(sorted_angle_list[bisect_idx - 1][0], target_angle))
+        
+        # If bisect_idx is closer, we're done. Otherwise subtract 1.
+        best_idx = bisect_idx - idx_adjustment
+        return sorted_angle_list[best_idx][1]
 
     def is_collision_free_path(self, start_state_idx, end_state_idx):
         for angle in np.linspace(0, 2 * math.pi, num_circle_points):
