@@ -5,7 +5,7 @@ Blog posts can be found here: https://github.com/ksoltan/comprobo_final/wiki
 ## Planning Overview
 The following diagram explains how the MDP algorithm produces an optimal policy. It glosses over some of the math that makes this computationally tractable, but it gets the idea across. See http://goldberg.berkeley.edu/pubs/rss-Alterovitz2007_RSS.pdf for "The Stochastic Motion Roadmap: A Sampling Framework for Planning with Markov Motion Uncertainty" paper by Alterovitz, Simeon, and Goldberg for a detailed implementation.
 
-![](https://github.com/ksoltan/comprobo_final/blob/master/imgsmdp_overview_readme.png)
+![](https://github.com/ksoltan/comprobo_final/blob/master/imgs/mdp_overview_readme.png)
 
 Our implementation mainly features three files.
 
